@@ -15,10 +15,13 @@ builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddSingleton<ProxyGenerator>();
 builder.Services.AddSingleton<CosmosClientInterceptor<HttpContext>>();
-builder.Services.AddSingleton<HttpContextContextAccessor>();
 builder.Services.AddSingleton<CosmosDbContextSessionTokenManager>();
 
-builder.Services.AddSingleton<IContextAccessor<HttpContext>>(provider => provider.GetRequiredService<HttpContextContextAccessor>());
+builder.Services.AddSingleton<GetCurrentContextDelegate<HttpContext>>(provider =>
+{
+    var httpContextAccessor = provider.GetRequiredService<IHttpContextAccessor>();
+    return () => httpContextAccessor.HttpContext;
+});
 builder.Services.AddSingleton<ICosmosDbContextSessionTokenManager<HttpContext>>(provider => provider.GetRequiredService<CosmosDbContextSessionTokenManager>());
 
 builder.Services.AddSingleton<CosmosClient>(provider =>

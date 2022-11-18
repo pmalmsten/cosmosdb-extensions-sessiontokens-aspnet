@@ -8,21 +8,23 @@ using Microsoft.Extensions.Logging;
 
 namespace CosmosDb.Extensions.SessionTokens.AspNetCore;
 
+public delegate T? GetCurrentContextDelegate<out T>();
+
 public class ContainerInterceptor<T> : IInterceptor
 {
     private readonly string _databaseName;
-    private readonly IContextAccessor<T> _contextAccessor;
+    private readonly GetCurrentContextDelegate<T> _getCurrentContextDelegate;
     private readonly ICosmosDbContextSessionTokenManager<T> _cosmosDbContextSessionTokenManager;
     private readonly ILogger<ContainerInterceptor<T>> _logger;
 
     public ContainerInterceptor(
         string databaseName,
-        IContextAccessor<T> contextAccessor,
+        GetCurrentContextDelegate<T> getCurrentContextDelegate,
         ICosmosDbContextSessionTokenManager<T> cosmosDbContextSessionTokenManager,
         ILogger<ContainerInterceptor<T>> logger)
     {
         _logger = logger;
-        _contextAccessor = contextAccessor;
+        _getCurrentContextDelegate = getCurrentContextDelegate;
         _cosmosDbContextSessionTokenManager = cosmosDbContextSessionTokenManager;
         _databaseName = databaseName;
     }
@@ -70,11 +72,12 @@ public class ContainerInterceptor<T> : IInterceptor
                                        throw new InvalidOperationException(
                                            $"Unable to create default instance of {parameterInfoParameterType}");
 
-                if (_contextAccessor.CurrentContext != null)
+                var currentContext = _getCurrentContextDelegate.Invoke();
+                if (currentContext != null)
                 {
                     var sessionTokenForContextAndDatabase =
                         _cosmosDbContextSessionTokenManager.GetSessionTokenForContextAndDatabase(
-                            _contextAccessor.CurrentContext, _databaseName);
+                            currentContext, _databaseName);
                     if (sessionTokenForContextAndDatabase != null)
                     {
                         sessionTokenProperty.SetValue(argumentValue, sessionTokenForContextAndDatabase);
@@ -108,10 +111,11 @@ public class ContainerInterceptor<T> : IInterceptor
     {
         _logger.LogInformation("Session: {Session}", response.Headers.Session);
 
-        if (_contextAccessor.CurrentContext != null)
+        var currentContext = _getCurrentContextDelegate.Invoke();
+        if (currentContext != null)
         {
             _cosmosDbContextSessionTokenManager.SetSessionTokenForContextAndDatabase(
-                _contextAccessor.CurrentContext, _databaseName, response.Headers.Session);
+                currentContext, _databaseName, response.Headers.Session);
         }
 
         return response;
