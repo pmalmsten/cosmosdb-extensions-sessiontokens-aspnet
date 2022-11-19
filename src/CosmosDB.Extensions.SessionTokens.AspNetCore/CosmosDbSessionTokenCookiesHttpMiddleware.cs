@@ -6,11 +6,11 @@ using Microsoft.AspNetCore.Http;
 
 namespace CosmosDb.Extensions.SessionTokens.AspNetCore;
 
-public class CookieCosmosDbHttpMiddleware : CosmosDbSessionTokenHttpMiddleware
+public class CosmosDbSessionTokenCookiesHttpMiddleware : CosmosDbSessionTokenHttpMiddleware
 {
     private static readonly string CosmosDbSessionTokenCookiePrefix = "csmsdb-";
 
-    public CookieCosmosDbHttpMiddleware(RequestDelegate next,
+    public CosmosDbSessionTokenCookiesHttpMiddleware(RequestDelegate next,
         ICosmosDbContextSessionTokenManager<HttpContext> sessionTokenManager) : base(next, sessionTokenManager)
     {
     }

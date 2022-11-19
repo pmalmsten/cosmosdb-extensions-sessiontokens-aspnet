@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Azure.Cosmos;
 
-namespace CosmosDB.Extensions.SessionTokens.AspNetCore.IntegrationTests;
+namespace CosmosDB.Extensions.SessionTokens.AspNetCore.IntegrationTestsWebAPI;
 
 [Route("[controller]")]
 [ApiController]

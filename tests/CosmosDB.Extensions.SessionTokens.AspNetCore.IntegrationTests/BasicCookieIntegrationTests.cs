@@ -1,6 +1,7 @@
 ﻿using System.Collections.Immutable;
 using Castle.DynamicProxy;
 using CosmosDb.Extensions.SessionTokens.AspNetCore;
+using CosmosDB.Extensions.SessionTokens.AspNetCore.IntegrationTestsWebAPI;
 using FakeItEasy;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -152,7 +153,7 @@ public class BasicCookieIntegrationTests
                         provider
                             .GetRequiredService<ProxyGenerator>()
                             .CreateClassProxyWithTarget(_fakeCosmos,
-                                provider.GetRequiredService<CosmosClientInterceptor<HttpContext>>()));
+                                provider.GetRequiredService<CosmosDbClientInterceptor<HttpContext>>()));
                 });
             })
             .CreateClient(new WebApplicationFactoryClientOptions()

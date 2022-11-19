@@ -14,7 +14,7 @@ builder.Services.AddLogging();
 builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddSingleton<ProxyGenerator>();
-builder.Services.AddSingleton<CosmosClientInterceptor<HttpContext>>();
+builder.Services.AddSingleton<CosmosDbClientInterceptor<HttpContext>>();
 builder.Services.AddSingleton<CosmosDbContextSessionTokenManager>();
 
 builder.Services.AddSingleton<GetCurrentContextDelegate<HttpContext>>(provider =>
@@ -30,7 +30,7 @@ builder.Services.AddSingleton<CosmosClient>(provider =>
         new("***REMOVED***");
 
     return provider.GetRequiredService<ProxyGenerator>()
-        .CreateClassProxyWithTarget(client, provider.GetRequiredService<CosmosClientInterceptor<HttpContext>>());
+        .CreateClassProxyWithTarget(client, provider.GetRequiredService<CosmosDbClientInterceptor<HttpContext>>());
 });
 
 builder.Services.AddHttpLogging(logging =>
@@ -41,7 +41,7 @@ builder.Services.AddHttpLogging(logging =>
 
 var app = builder.Build();
 
-app.UseMiddleware<CookieCosmosDbHttpMiddleware>();
+app.UseMiddleware<CosmosDbSessionTokenCookiesHttpMiddleware>();
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
