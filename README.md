@@ -9,10 +9,10 @@ If you:
 
 * Are using Cosmos DB
 * Are using ASP.NET to build a web app / web API
-* Want users of your web app / API to have a good experience (e.g. by being able to immediately read their own writes,
-  never see older results on a refresh, etc.)
 * Want to use Comsos DB [Session Consistency] to save money (vs. using
   a [stronger consistency level](https://learn.microsoft.com/en-us/azure/cosmos-db/consistency-levels#consistency-levels-and-throughput))
+* Want users of your web app / API to have a good experience (e.g. by being able to immediately read their own writes,
+  never see older results on a refresh, etc.)
 
 then this might be a good fit for you.
 
