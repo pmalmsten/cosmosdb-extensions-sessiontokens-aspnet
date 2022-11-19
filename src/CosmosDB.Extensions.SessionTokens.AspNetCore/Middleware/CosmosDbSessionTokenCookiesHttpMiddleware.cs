@@ -4,7 +4,7 @@ using System.Linq;
 using System.Net;
 using Microsoft.AspNetCore.Http;
 
-namespace CosmosDb.Extensions.SessionTokens.AspNetCore;
+namespace CosmosDB.Extensions.SessionTokens.AspNetCore.Middleware;
 
 /// <summary>
 /// Preserves Cosmos DB session tokens across HTTP requests by sending them to clients as cookies. Adds one cookie

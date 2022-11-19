@@ -3,7 +3,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using Microsoft.AspNetCore.Http;
 
-namespace CosmosDb.Extensions.SessionTokens.AspNetCore;
+namespace CosmosDB.Extensions.SessionTokens.AspNetCore;
 
 public class CosmosDbContextSessionTokenManager : ICosmosDbContextSessionTokenManager<HttpContext>
 {

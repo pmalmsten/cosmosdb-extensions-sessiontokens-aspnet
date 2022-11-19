@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 
-namespace CosmosDb.Extensions.SessionTokens.AspNetCore;
+namespace CosmosDB.Extensions.SessionTokens.AspNetCore.Middleware;
 
 public abstract class CosmosDbSessionTokenHttpMiddleware
 {

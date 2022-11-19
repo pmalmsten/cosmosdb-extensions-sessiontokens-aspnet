@@ -2,7 +2,7 @@ using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
 using Microsoft.AspNetCore.Http;
 
-namespace CosmosDb.Extensions.SessionTokens.AspNetCore;
+namespace CosmosDB.Extensions.SessionTokens.AspNetCore;
 
 public interface ICosmosDbContextSessionTokenManager<in T>
 {

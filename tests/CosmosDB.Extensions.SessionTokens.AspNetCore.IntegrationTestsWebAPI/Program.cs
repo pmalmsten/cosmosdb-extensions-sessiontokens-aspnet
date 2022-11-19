@@ -1,5 +1,7 @@
 using Castle.DynamicProxy;
-using CosmosDb.Extensions.SessionTokens.AspNetCore;
+using CosmosDB.Extensions.SessionTokens.AspNetCore;
+using CosmosDB.Extensions.SessionTokens.AspNetCore.Interceptors;
+using CosmosDB.Extensions.SessionTokens.AspNetCore.Middleware;
 using Microsoft.Azure.Cosmos;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -59,6 +61,9 @@ app.MapControllers();
 
 app.Run();
 
-public partial class Program
+namespace CosmosDB.Extensions.SessionTokens.AspNetCore.IntegrationTestsWebAPI
 {
+    public partial class Program
+    {
+    }
 }

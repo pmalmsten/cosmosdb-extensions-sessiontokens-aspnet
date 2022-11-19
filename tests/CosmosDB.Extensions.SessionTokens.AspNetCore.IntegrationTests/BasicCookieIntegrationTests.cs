@@ -1,8 +1,8 @@
 ﻿using System.Collections.Immutable;
 using System.Net;
 using Castle.DynamicProxy;
-using CosmosDb.Extensions.SessionTokens.AspNetCore;
 using CosmosDB.Extensions.SessionTokens.AspNetCore.IntegrationTestsWebAPI;
+using CosmosDB.Extensions.SessionTokens.AspNetCore.Interceptors;
 using FakeItEasy;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc.Testing;

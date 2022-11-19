@@ -6,7 +6,7 @@ using Castle.DynamicProxy;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Logging;
 
-namespace CosmosDb.Extensions.SessionTokens.AspNetCore;
+namespace CosmosDB.Extensions.SessionTokens.AspNetCore.Interceptors;
 
 public delegate T? GetCurrentContextDelegate<out T>();
 
