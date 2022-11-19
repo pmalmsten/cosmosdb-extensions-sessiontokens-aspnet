@@ -28,8 +28,7 @@ builder.Services.AddSingleton<ICosmosDbContextSessionTokenManager<HttpContext>>(
 
 builder.Services.AddSingleton<CosmosClient>(provider =>
 {
-    CosmosClient client =
-        new("***REMOVED***");
+    CosmosClient client = new(builder.Configuration["CosmosDB:PrimaryConnectionString"]);
 
     return provider.GetRequiredService<IProxyGenerator>()
         .CreateClassProxyWithTarget(client, provider.GetRequiredService<CosmosDbClientInterceptor<HttpContext>>());
