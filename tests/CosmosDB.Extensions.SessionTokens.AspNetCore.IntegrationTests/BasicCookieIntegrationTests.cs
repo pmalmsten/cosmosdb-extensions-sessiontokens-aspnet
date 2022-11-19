@@ -1,4 +1,5 @@
 ﻿using System.Collections.Immutable;
+using System.Net;
 using Castle.DynamicProxy;
 using CosmosDb.Extensions.SessionTokens.AspNetCore;
 using CosmosDB.Extensions.SessionTokens.AspNetCore.IntegrationTestsWebAPI;
@@ -15,6 +16,7 @@ namespace CosmosDB.Extensions.SessionTokens.AspNetCore.IntegrationTests;
 public class BasicCookieIntegrationTests 
     : IClassFixture<WebApplicationFactory<Program>>
 {
+    private const string TestSessionToken = "1234";
     private readonly WebApplicationFactory<Program> _factory;
     private readonly ITestOutputHelper _testOutputHelper;
     
@@ -33,16 +35,9 @@ public class BasicCookieIntegrationTests
     [Fact]
     public async Task SessionTokenFromCosmosDBToCookie_ReadItemAsync()
     {
-        var mockResponse = A.Fake<ItemResponse<Document>>();
-        A.CallTo(() =>
-                _fakeContainer.ReadItemAsync<Document>(A<string>._, A<PartitionKey>._, A<ItemRequestOptions>._,
-                    A<CancellationToken>._))
-            .Returns(mockResponse);
-
-        A.CallTo(() => mockResponse.Headers.Session).Returns("1234");
-        
         // Arrange
         var client = CreateHttpClientWithMockedCosmos();
+        MockReadItemAsyncReturnsSessionToken();
 
         // Act
         var response = await client.GetAsync("Test");
@@ -140,6 +135,49 @@ public class BasicCookieIntegrationTests
                 .Equal(ImmutableList<string>.Empty.Add($"csmsdb-TestDatabase={sessionToken}; path=/"));
         }
 
+    }
+    
+    [Fact]
+    public async Task SessionTokenCookiesNotSetOn401()
+    {
+        // Arrange
+        var client = CreateHttpClientWithMockedCosmos();
+        MockReadItemAsyncReturnsSessionToken();
+
+        // Act
+        var response = await client.GetAsync("Test/401");
+        _testOutputHelper.WriteLine(response.ToString());
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        response.Headers.TryGetValues("Set-Cookie", out _).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task SessionTokenCookiesNotSetOn403()
+    {
+        // Arrange
+        var client = CreateHttpClientWithMockedCosmos();
+        MockReadItemAsyncReturnsSessionToken();
+
+        // Act
+        var response = await client.GetAsync("Test/403");
+        _testOutputHelper.WriteLine(response.ToString());
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        response.Headers.TryGetValues("Set-Cookie", out _).Should().BeFalse();
+    }
+
+    private void MockReadItemAsyncReturnsSessionToken()
+    {
+        var mockResponse = A.Fake<ItemResponse<Document>>();
+        A.CallTo(() => mockResponse.Headers.Session).Returns(TestSessionToken);
+        
+        A.CallTo(() =>
+                _fakeContainer.ReadItemAsync<Document>(A<string>._, A<PartitionKey>._, A<ItemRequestOptions>._,
+                    A<CancellationToken>._))
+            .Returns(mockResponse);
     }
 
 

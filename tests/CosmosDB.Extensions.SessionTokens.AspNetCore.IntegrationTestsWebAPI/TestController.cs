@@ -7,6 +7,9 @@ namespace CosmosDB.Extensions.SessionTokens.AspNetCore.IntegrationTestsWebAPI;
 [ApiController]
 public class TestController : ControllerBase
 {
+    private const string TestId = "testId";
+    private const string TestPartitionKey = "testPartitionKey";
+
     private readonly Container _container;
 
     public TestController(CosmosClient cosmosClient)
@@ -14,10 +17,26 @@ public class TestController : ControllerBase
         _container = cosmosClient.GetContainer("TestDatabase", "TestContainer");
     }
 
-    [HttpGet(Name = "TestEndpoint")]
-    public async Task<Document> TestEndpoint()
+    [HttpGet]
+    public async Task<Document> OkEndpoint()
     {
-        return await _container.ReadItemAsync<Document>("testId", new PartitionKey("testPartitionKey"));
+        return await _container.ReadItemAsync<Document>(TestId, new PartitionKey(TestPartitionKey));
+    }
+    
+    [HttpGet("401")]
+    public async Task<IActionResult> UnauthorizedEndpoint()
+    {
+        await _container.ReadItemAsync<Document>(TestId, new PartitionKey(TestPartitionKey));
+
+        return StatusCode(401);
+    }
+    
+    [HttpGet("403")]
+    public async Task<IActionResult> AccessDeniedEndpoint()
+    {
+        await _container.ReadItemAsync<Document>(TestId, new PartitionKey(TestPartitionKey));
+
+        return StatusCode(403);
     }
 }
 

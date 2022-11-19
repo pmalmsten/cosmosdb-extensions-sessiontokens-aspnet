@@ -32,6 +32,11 @@ public class CosmosDbSessionTokenCookiesHttpMiddleware : CosmosDbSessionTokenHtt
     protected override void SetOutgoingCosmosDbSessionTokensOnHttpResponse(HttpContext context,
         IReadOnlyDictionary<string, string> dbNameToSessionTokenDictionary)
     {
+        if (!ShouldIncludeCookiesForResponseStatusCode(context.Response.StatusCode))
+        {
+            return;
+        }
+        
         foreach (var pair in dbNameToSessionTokenDictionary)
         {
             context.Response.Cookies.Append(CookieNameForDatabase(pair.Key), pair.Value);
@@ -43,4 +48,18 @@ public class CosmosDbSessionTokenCookiesHttpMiddleware : CosmosDbSessionTokenHtt
 
     private static string DatabaseFromCookieName(string cookieName) =>
         WebUtility.UrlDecode(cookieName.Substring(CosmosDbSessionTokenCookiePrefix.Length));
+    
+    private static bool ShouldIncludeCookiesForResponseStatusCode(int statusCode)
+    {
+        return statusCode switch
+        {
+            // Cosmos DB session tokens only have an impact when writes are issued to the database. By default, we
+            // assume that unauthenticated/unauthorized calls will not result in any writes to the database - as such,
+            // including session tokens in these responses would not have any meaningful impact.
+            // Furthermore, since the cookies this middleware adds to HTTP responses include Cosmos DB database names
+            // in plaintext, we have an interest in not returning those names to unauthenticated/unauthorized callers.
+            401 or 403 => false, 
+            _ => true
+        };
+    }
 }
