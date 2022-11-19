@@ -1,6 +1,7 @@
 ﻿using System.Collections.Immutable;
 using System.Net;
 using Castle.DynamicProxy;
+using CosmosDB.Extensions.SessionTokens.AspNetCore.IntegrationTests.Util;
 using CosmosDB.Extensions.SessionTokens.AspNetCore.IntegrationTestsWebAPI;
 using CosmosDB.Extensions.SessionTokens.AspNetCore.Interceptors;
 using FakeItEasy;
@@ -13,21 +14,21 @@ using Xunit.Abstractions;
 
 namespace CosmosDB.Extensions.SessionTokens.AspNetCore.IntegrationTests;
 
-public class BasicCookieIntegrationTests 
-    : IClassFixture<WebApplicationFactory<Program>>
+public class BasicCookieIntegrationTests
+    : IClassFixture<WebApplicationFactory<Program>>, IDisposable
 {
     private const string TestSessionToken = "1234";
     private readonly WebApplicationFactory<Program> _factory;
-    private readonly ITestOutputHelper _testOutputHelper;
-    
+    private readonly DisconnectableTestOutputLogger _testOutputHelper;
+
     private readonly CosmosClient _fakeCosmos = A.Fake<CosmosClient>();
     private readonly Container _fakeContainer = A.Fake<Container>();
 
     public BasicCookieIntegrationTests(WebApplicationFactory<Program> factory, ITestOutputHelper testOutputHelper)
     {
         _factory = factory;
-        _testOutputHelper = testOutputHelper;
-        
+        _testOutputHelper = new DisconnectableTestOutputLogger(testOutputHelper);
+
         A.CallTo(() => _fakeCosmos.GetContainer("TestDatabase", "TestContainer"))
             .Returns(_fakeContainer);
     }
@@ -92,13 +93,14 @@ public class BasicCookieIntegrationTests
     }
 
     [Fact]
-    public async Task SessionTokenFromCookieToCosmosDB_ReadItemAsync_ParallelRequestsSetCorrespondingSessionOnResponses()
+    public async Task
+        SessionTokenFromCookieToCosmosDB_ReadItemAsync_ParallelRequestsSetCorrespondingSessionOnResponses()
     {
         // Arrange
         // Disable client cookie handling to prevent client from 'helpfully' saving the cookie from a prior response and
         // using that cookie value in future requests instead of the cookies we explicitly set for each parallel request.
-        var client = CreateHttpClientWithMockedCosmos(handleCookies: false); 
-        
+        var client = CreateHttpClientWithMockedCosmos(handleCookies: false);
+
         A.CallTo(() => _fakeContainer.ReadItemAsync<Document>(A<string>._, A<PartitionKey>._, A<ItemRequestOptions>._,
                 A<CancellationToken>._))
             .ReturnsLazily(call =>
@@ -128,15 +130,14 @@ public class BasicCookieIntegrationTests
         foreach (var (sessionToken, responseTask) in sentRequests)
         {
             var response = await responseTask;
-            
+
             _testOutputHelper.WriteLine(response.ToString());
             response.EnsureSuccessStatusCode(); // Status Code 200-299
             response.Headers.GetValues("Set-Cookie").Should()
                 .Equal(ImmutableList<string>.Empty.Add($"csmsdb-TestDatabase={sessionToken}; path=/"));
         }
-
     }
-    
+
     [Fact]
     public async Task SessionTokenCookiesNotSetOn401()
     {
@@ -173,7 +174,7 @@ public class BasicCookieIntegrationTests
     {
         var mockResponse = A.Fake<ItemResponse<Document>>();
         A.CallTo(() => mockResponse.Headers.Session).Returns(TestSessionToken);
-        
+
         A.CallTo(() =>
                 _fakeContainer.ReadItemAsync<Document>(A<string>._, A<PartitionKey>._, A<ItemRequestOptions>._,
                     A<CancellationToken>._))
@@ -185,18 +186,28 @@ public class BasicCookieIntegrationTests
     {
         return _factory.WithWebHostBuilder(builder =>
             {
-                builder.ConfigureTestServices(services =>
-                {
-                    services.AddSingleton<CosmosClient>(provider =>
-                        provider
-                            .GetRequiredService<IProxyGenerator>()
-                            .CreateClassProxyWithTarget(_fakeCosmos,
-                                provider.GetRequiredService<CosmosDbClientInterceptor<HttpContext>>()));
-                });
+                builder
+                    .ConfigureTestServices(services =>
+                    {
+                        services.AddSingleton<CosmosClient>(provider =>
+                            provider
+                                .GetRequiredService<IProxyGenerator>()
+                                .CreateClassProxyWithTarget(_fakeCosmos,
+                                    provider.GetRequiredService<CosmosDbClientInterceptor<HttpContext>>()));
+                    })
+                    .ConfigureLogging(loggingBuilder =>
+                    {
+                        loggingBuilder.AddProvider(new IntegrationTestLoggerProvider(_testOutputHelper));
+                    });
             })
             .CreateClient(new WebApplicationFactoryClientOptions()
             {
                 HandleCookies = handleCookies
             });
+    }
+
+    public void Dispose()
+    {
+        _testOutputHelper.Disconnect();
     }
 }

@@ -31,28 +31,30 @@ public class CosmosDbContainerInterceptor<T> : IInterceptor
 
     public void Intercept(IInvocation invocation)
     {
-        using (_logger.BeginScope(new { DatabaseName = _databaseName, InvocationId = Guid.NewGuid() }))
+        using var scope = _logger.BeginScope(
+            "Invocation of {MethodName}, assigned invocation ID {InvocationId}", invocation.Method.Name, Guid.NewGuid());
+        _logger.LogTrace("Entering invocation");
+        
+        try
         {
-            _logger.LogInformation("Before target call: {TargetType}.{MethodName}", invocation.TargetType,
-                invocation.Method.Name);
-            try
-            {
-                SetSessionTokenOnRequestOptionsParameter(invocation);
+            SetSessionTokenOnRequestOptionsParameter(invocation);
 
-                invocation.Proceed();
+            _logger.LogTrace("Calling invocation.Proceed()");
+            invocation.Proceed();
+            _logger.LogTrace("Calling invocation.Proceed() returned normally");
 
-                invocation.ReturnValue = DynamicDispatchAsyncVsSync((dynamic)invocation.ReturnValue);
-            }
-            finally
-            {
-                _logger.LogInformation("After target call: {TargetType}.{MethodName}", invocation.TargetType,
-                    invocation.Method.Name);
-            }
+            invocation.ReturnValue = DynamicDispatchAsyncVsSync((dynamic)invocation.ReturnValue);
+        }
+        finally
+        {
+            _logger.LogTrace("Exiting invocation");
         }
     }
 
     private void SetSessionTokenOnRequestOptionsParameter(IInvocation invocation)
     {
+        _logger.LogDebug("Searching for RequestOptions parameter");
+        
         var parameterValuesWithIndex = invocation.Method.GetParameters()
             .Select((value, i) => (value, i));
 
@@ -61,7 +63,7 @@ public class CosmosDbContainerInterceptor<T> : IInterceptor
             var parameterInfoParameterType = parameterInfo.ParameterType;
             if (!parameterInfoParameterType.IsAssignableTo(typeof(RequestOptions))) continue;
 
-            _logger.LogInformation("Found RequestOptions param at position {ParamIndex}", i);
+            _logger.LogDebug("Found RequestOptions param at position {RequestOptionsParameterIndex}", i);
             PropertyInfo? sessionTokenProperty =
                 parameterInfoParameterType.GetProperty(nameof(ItemRequestOptions.SessionToken));
 
@@ -75,47 +77,67 @@ public class CosmosDbContainerInterceptor<T> : IInterceptor
                 var currentContext = _getCurrentContextDelegate.Invoke();
                 if (currentContext != null)
                 {
+                    _logger.LogDebug("Current context is not null, getting session token from manager");
                     var sessionTokenForContextAndDatabase =
                         _cosmosDbContextSessionTokenManager.GetSessionTokenForContextAndDatabase(
                             currentContext, _databaseName);
+                    
                     if (sessionTokenForContextAndDatabase != null)
                     {
                         sessionTokenProperty.SetValue(argumentValue, sessionTokenForContextAndDatabase);
+                        _logger.LogDebug("SessionToken property set on RequestOptions param at position {RequestOptionsParameterIndex}", i);
                     }
+                    else
+                    {
+                        _logger.LogDebug("Session token from manager is null, doing nothing");
+                    }
+                }
+                else
+                {
+                    _logger.LogWarning("Current context is null, this call flow is not currently within a tracked context. Doing nothing");
                 }
 
                 invocation.Arguments[i] = argumentValue;
-
-                _logger.LogInformation("SessionToken property set - done checking parameters");
                 break;
             }
 
-            _logger.LogInformation("This RequestOptions param not have a SessionToken Property - ignored");
+            _logger.LogDebug("RequestOptions param at {RequestOptionsParameterIndex} does not have a SessionToken property - ignoring it", i);
         }
     }
 
-    private async Task<TTask> DynamicDispatchAsyncVsSync<TTask>(Task<TTask> response)
+    private async Task<TTask> DynamicDispatchAsyncVsSync<TTask>(Task<TTask> returnValueTask)
     {
         // Await result, then call synchronous overload.
-        _logger.LogInformation("Task returned, awaiting it first");
+        _logger.LogDebug("Return value was a Task<T>, awaiting it before continuing");
 
-        return DynamicDispatchAsyncVsSync(await response);
+        return DynamicDispatchAsyncVsSync(await returnValueTask);
     }
 
     private TResponse DynamicDispatchAsyncVsSync<TResponse>(TResponse response)
     {
-        return response == null ? response : (TResponse)DynamicDispatchReturnValueType((dynamic)response);
+        if (response == null)
+        {
+            _logger.LogWarning("Return value was unexpectedly null - unable to check for a session token from the Cosmos DB SDK");
+            return response;
+        }
+        
+        return (TResponse)DynamicDispatchReturnValueType((dynamic)response);
     }
 
     private Response<TResponse> DynamicDispatchReturnValueType<TResponse>(Response<TResponse> response)
     {
-        _logger.LogInformation("Session: {Session}", response.Headers.Session);
+        _logger.LogDebug("Session token captured from Cosmos DB Response<T>: {SessionToken}", response.Headers.Session);
 
         var currentContext = _getCurrentContextDelegate.Invoke();
         if (currentContext != null)
         {
             _cosmosDbContextSessionTokenManager.SetSessionTokenForContextAndDatabase(
                 currentContext, _databaseName, response.Headers.Session);
+            _logger.LogDebug("Current context was not null, session token was saved");
+        }
+        else
+        {
+            _logger.LogWarning("Current context is null, this call flow is not currently within a tracked context. Session token not saved");
         }
 
         return response;
@@ -123,7 +145,7 @@ public class CosmosDbContainerInterceptor<T> : IInterceptor
 
     private object DynamicDispatchReturnValueType(object response)
     {
-        _logger.LogInformation("Return value not a Response<> instance: : {ReturnValueType}", response.GetType());
+        _logger.LogWarning("Return value was not a Response<> instance - actual type was {ReturnValueType}", response.GetType());
         return response;
     }
 }
