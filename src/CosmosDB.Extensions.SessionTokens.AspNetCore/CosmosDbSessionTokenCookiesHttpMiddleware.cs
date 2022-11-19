@@ -6,6 +6,10 @@ using Microsoft.AspNetCore.Http;
 
 namespace CosmosDb.Extensions.SessionTokens.AspNetCore;
 
+/// <summary>
+/// Preserves Cosmos DB session tokens across HTTP requests by sending them to clients as cookies. Adds one cookie
+/// per Cosmos DB database called as part of generating a response to a given HTTP request.
+/// </summary>
 public class CosmosDbSessionTokenCookiesHttpMiddleware : CosmosDbSessionTokenHttpMiddleware
 {
     private static readonly string CosmosDbSessionTokenCookiePrefix = "csmsdb-";

@@ -37,10 +37,21 @@ public abstract class CosmosDbSessionTokenHttpMiddleware
         await _next(context);
     }
 
+    /// <summary>
+    /// Read Cosmos DB session token values (if any) from the incoming request context.
+    /// </summary>
+    /// <param name="context">The HttpContext to read from.</param>
+    /// <returns>A dictionary of Cosmos DB database name to Cosmos DB session token value.</returns>
     protected abstract ConcurrentDictionary<string, string>
         ReadIncomingCosmosDbDatabaseSessionTokensFromHttpRequest(
             HttpContext context);
 
+    /// <summary>
+    /// Write Cosmos DB session token values (if any) to the outgoing request context.
+    /// </summary>
+    /// <param name="context">The HttpContext to write to.</param>
+    /// <param name="dbNameToSessionTokenDictionary">A dictionary of Cosmos DB database name to Cosmos DB session
+    /// token value.</param>
     protected abstract void SetOutgoingCosmosDbSessionTokensOnHttpResponse(HttpContext context,
         IReadOnlyDictionary<string, string> dbNameToSessionTokenDictionary);
 }
