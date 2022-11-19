@@ -27,22 +27,31 @@ public class CosmosDbClientInterceptor<T> : IInterceptor
 
     public void Intercept(IInvocation invocation)
     {
-        _logger.LogTrace("Incoming invocation: {TypeName}.{MethodName}", invocation.TargetType.Name,
-            invocation.Method.Name);
-        invocation.Proceed();
+        using var scope = _logger.BeginScope("Handling invocation for method {CosmosClientInvokedMethodName}", invocation.Method.Name);
 
-        if (invocation.Method.Name == nameof(CosmosClient.GetContainer) &&
-            invocation.ReturnValue is Container value)
+        try
         {
-            _logger.LogTrace("Invocation matches {GetContainerMethodName}, applying nested interceptor",
-                nameof(CosmosClient.GetContainer));
-            invocation.ReturnValue = _generator.CreateClassProxyWithTarget(
-                value,
-                new CosmosDbContainerInterceptor<T>(
-                    (string)invocation.Arguments[0],
-                    _contextAccessor,
-                    _cosmosDbContextSessionTokenManager,
-                    _containerLogger));
+            _logger.LogTrace("Calling invocation.Proceed()");
+            invocation.Proceed();
+            _logger.LogTrace("Invocation.Proceed() returned normally");
+
+            if (invocation.Method.Name == nameof(CosmosClient.GetContainer) &&
+                invocation.ReturnValue is Container value)
+            {
+                _logger.LogTrace("Invocation matches GetContainer, returning proxied Container object");
+                invocation.ReturnValue = _generator.CreateClassProxyWithTarget(
+                    value,
+                    new CosmosDbContainerInterceptor<T>(
+                        (string)invocation.Arguments[0],
+                        _contextAccessor,
+                        _cosmosDbContextSessionTokenManager,
+                        _containerLogger));
+            }
+        }
+        catch
+        {
+            _logger.LogTrace("Invocation.Proceed() threw an exception");
+            throw;
         }
     }
 }
