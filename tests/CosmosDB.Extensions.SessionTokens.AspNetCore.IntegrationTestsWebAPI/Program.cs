@@ -15,7 +15,7 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddLogging();
 builder.Services.AddHttpContextAccessor();
 
-builder.Services.AddSingleton<ProxyGenerator>();
+builder.Services.AddSingleton<IProxyGenerator>(new ProxyGenerator());
 builder.Services.AddSingleton<CosmosDbClientInterceptor<HttpContext>>();
 builder.Services.AddSingleton<CosmosDbContextSessionTokenManager>();
 
@@ -31,7 +31,7 @@ builder.Services.AddSingleton<CosmosClient>(provider =>
     CosmosClient client =
         new("***REMOVED***");
 
-    return provider.GetRequiredService<ProxyGenerator>()
+    return provider.GetRequiredService<IProxyGenerator>()
         .CreateClassProxyWithTarget(client, provider.GetRequiredService<CosmosDbClientInterceptor<HttpContext>>());
 });
 

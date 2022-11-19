@@ -189,7 +189,7 @@ public class BasicCookieIntegrationTests
                 {
                     services.AddSingleton<CosmosClient>(provider =>
                         provider
-                            .GetRequiredService<ProxyGenerator>()
+                            .GetRequiredService<IProxyGenerator>()
                             .CreateClassProxyWithTarget(_fakeCosmos,
                                 provider.GetRequiredService<CosmosDbClientInterceptor<HttpContext>>()));
                 });

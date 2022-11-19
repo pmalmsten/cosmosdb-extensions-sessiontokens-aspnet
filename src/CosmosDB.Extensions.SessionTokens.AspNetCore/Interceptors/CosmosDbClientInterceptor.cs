@@ -6,14 +6,14 @@ namespace CosmosDB.Extensions.SessionTokens.AspNetCore.Interceptors;
 
 public class CosmosDbClientInterceptor<T> : IInterceptor
 {
-    private readonly ProxyGenerator _generator;
+    private readonly IProxyGenerator _generator;
     private readonly GetCurrentContextDelegate<T> _contextAccessor;
     private readonly ICosmosDbContextSessionTokenManager<T> _cosmosDbContextSessionTokenManager;
     private readonly ILogger<CosmosDbClientInterceptor<T>> _logger;
     private readonly ILogger<CosmosDbContainerInterceptor<T>> _containerLogger;
 
     public CosmosDbClientInterceptor(
-        ProxyGenerator generator,
+        IProxyGenerator generator,
         GetCurrentContextDelegate<T> contextAccessor,
         ICosmosDbContextSessionTokenManager<T> cosmosDbContextSessionTokenManager,
         ILoggerFactory loggerFactory)
