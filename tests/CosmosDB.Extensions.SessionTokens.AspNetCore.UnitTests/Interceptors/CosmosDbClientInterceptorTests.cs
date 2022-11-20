@@ -1,5 +1,4 @@
-﻿using System.Net;
-using Castle.DynamicProxy;
+﻿using Castle.DynamicProxy;
 using CosmosDB.Extensions.SessionTokens.AspNetCore;
 using CosmosDB.Extensions.SessionTokens.AspNetCore.Interceptors;
 using FakeItEasy;

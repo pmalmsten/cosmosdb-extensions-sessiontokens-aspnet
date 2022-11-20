@@ -26,9 +26,9 @@ public abstract class CosmosDbSessionTokenHttpMiddleware
         context.Response.OnStarting(() =>
         {
             if (_sessionTokenManager.TryGetSessionTokensForHttpContext(context,
-                    out var databaseNameToSessionTokenDictionary))
+                    out var containerCodeToSessionTokenDictionary))
             {
-                SetOutgoingCosmosDbSessionTokensOnHttpResponse(context, databaseNameToSessionTokenDictionary);
+                SetOutgoingCosmosDbSessionTokensOnHttpResponse(context, containerCodeToSessionTokenDictionary);
             }
 
             return Task.CompletedTask;
@@ -41,8 +41,8 @@ public abstract class CosmosDbSessionTokenHttpMiddleware
     /// Read Cosmos DB session token values (if any) from the incoming request context.
     /// </summary>
     /// <param name="context">The HttpContext to read from.</param>
-    /// <returns>A dictionary of Cosmos DB database name to Cosmos DB session token value.</returns>
-    protected abstract ConcurrentDictionary<string, string>
+    /// <returns>A dictionary of calculated Container codes to Cosmos DB session token value.</returns>
+    protected abstract ConcurrentDictionary<uint, string>
         ReadIncomingCosmosDbDatabaseSessionTokensFromHttpRequest(
             HttpContext context);
 
@@ -50,8 +50,8 @@ public abstract class CosmosDbSessionTokenHttpMiddleware
     /// Write Cosmos DB session token values (if any) to the outgoing request context.
     /// </summary>
     /// <param name="context">The HttpContext to write to.</param>
-    /// <param name="dbNameToSessionTokenDictionary">A dictionary of Cosmos DB database name to Cosmos DB session
-    /// token value.</param>
+    /// <param name="containerCodeToSessionTokenDictionary">A dictionary of calculated Container codes
+    /// to Cosmos DB session token value.</param>
     protected abstract void SetOutgoingCosmosDbSessionTokensOnHttpResponse(HttpContext context,
-        IReadOnlyDictionary<string, string> dbNameToSessionTokenDictionary);
+        IReadOnlyDictionary<uint, string> containerCodeToSessionTokenDictionary);
 }

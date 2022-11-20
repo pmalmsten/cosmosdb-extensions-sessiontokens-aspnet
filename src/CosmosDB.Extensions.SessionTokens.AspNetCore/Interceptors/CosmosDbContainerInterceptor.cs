@@ -12,21 +12,27 @@ public delegate T? GetCurrentContextDelegate<out T>();
 
 public class CosmosDbContainerInterceptor<T> : IInterceptor
 {
+    private readonly Uri _accountEndpoint;
     private readonly string _databaseName;
+    private readonly string _containerName;
     private readonly GetCurrentContextDelegate<T> _getCurrentContextDelegate;
     private readonly ICosmosDbContextSessionTokenManager<T> _cosmosDbContextSessionTokenManager;
     private readonly ILogger<CosmosDbContainerInterceptor<T>> _logger;
 
     public CosmosDbContainerInterceptor(
+        Uri accountEndpoint,
         string databaseName,
+        string containerName,
         GetCurrentContextDelegate<T> getCurrentContextDelegate,
         ICosmosDbContextSessionTokenManager<T> cosmosDbContextSessionTokenManager,
         ILogger<CosmosDbContainerInterceptor<T>> logger)
     {
+        _accountEndpoint = accountEndpoint;
         _logger = logger;
         _getCurrentContextDelegate = getCurrentContextDelegate;
         _cosmosDbContextSessionTokenManager = cosmosDbContextSessionTokenManager;
         _databaseName = databaseName;
+        _containerName = containerName;
     }
 
     public void Intercept(IInvocation invocation)
@@ -79,8 +85,8 @@ public class CosmosDbContainerInterceptor<T> : IInterceptor
                 {
                     _logger.LogDebug("Current context is not null, getting session token from manager");
                     var sessionTokenForContextAndDatabase =
-                        _cosmosDbContextSessionTokenManager.GetSessionTokenForContextAndDatabase(
-                            currentContext, _databaseName);
+                        _cosmosDbContextSessionTokenManager.GetSessionTokenForContextFullyQualifiedContainer(
+                            currentContext, _accountEndpoint, _databaseName, _containerName);
                     
                     if (sessionTokenForContextAndDatabase != null)
                     {
@@ -131,8 +137,8 @@ public class CosmosDbContainerInterceptor<T> : IInterceptor
         var currentContext = _getCurrentContextDelegate.Invoke();
         if (currentContext != null)
         {
-            _cosmosDbContextSessionTokenManager.SetSessionTokenForContextAndDatabase(
-                currentContext, _databaseName, response.Headers.Session);
+            _cosmosDbContextSessionTokenManager.SetSessionTokenForContextAndFullyQualifiedContainer(
+                currentContext, _accountEndpoint, _databaseName, _containerName, response.Headers.Session);
             _logger.LogDebug("Current context was not null, session token was saved");
         }
         else

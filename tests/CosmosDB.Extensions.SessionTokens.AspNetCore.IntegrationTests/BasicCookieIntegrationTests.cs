@@ -29,6 +29,7 @@ public class BasicCookieIntegrationTests
         _factory = factory;
         _testOutputHelper = new DisconnectableTestOutputLogger(testOutputHelper);
 
+        A.CallTo(() => _fakeCosmos.Endpoint).Returns(new Uri("https://cosmos.azure.com"));
         A.CallTo(() => _fakeCosmos.GetContainer("TestDatabase", "TestContainer"))
             .Returns(_fakeContainer);
     }
@@ -47,7 +48,7 @@ public class BasicCookieIntegrationTests
         // Assert
         response.EnsureSuccessStatusCode(); // Status Code 200-299
         response.Headers.GetValues("Set-Cookie").Should()
-            .Equal(ImmutableList<string>.Empty.Add("csmsdb-TestDatabase=1234; path=/"));
+            .Equal(ImmutableList<string>.Empty.Add("csmsdb-716638=1234; path=/"));
     }
 
     [Fact]
@@ -65,7 +66,7 @@ public class BasicCookieIntegrationTests
                     .Which
                     .SessionToken.Should().Be(sessionTokenInIncomingCookie);
             })
-            .ReturnsLazily(call =>
+            .ReturnsLazily(_ =>
             {
                 var fakeItemResponse = A.Fake<ItemResponse<Document>>();
                 A.CallTo(() => fakeItemResponse.Headers.Session)
@@ -76,7 +77,7 @@ public class BasicCookieIntegrationTests
 
         // Act
         var message = new HttpRequestMessage(HttpMethod.Get, "Test");
-        message.Headers.Add("Cookie", $"csmsdb-TestDatabase={sessionTokenInIncomingCookie}; path=/");
+        message.Headers.Add("Cookie", $"csmsdb-716638={sessionTokenInIncomingCookie}; path=/");
 
         var response = await client.SendAsync(message);
 
@@ -89,7 +90,7 @@ public class BasicCookieIntegrationTests
         // Assert
         response.EnsureSuccessStatusCode(); // Status Code 200-299
         response.Headers.GetValues("Set-Cookie").Should()
-            .Equal(ImmutableList<string>.Empty.Add($"csmsdb-TestDatabase={sessionTokenInIncomingCookie}; path=/"));
+            .Equal(ImmutableList<string>.Empty.Add($"csmsdb-716638={sessionTokenInIncomingCookie}; path=/"));
     }
 
     [Fact]
@@ -114,12 +115,12 @@ public class BasicCookieIntegrationTests
 
         // Act
         var sentRequests = Enumerable.Range(0, 50)
-            .Select(it => Guid.NewGuid())
+            .Select(_ => Guid.NewGuid())
             .Select(sessionToken => (SessionToken: sessionToken, Request: new HttpRequestMessage(HttpMethod.Get, "Test")
             {
                 Headers =
                 {
-                    { "Cookie", $"csmsdb-TestDatabase={sessionToken}; path=/" }
+                    { "Cookie", $"csmsdb-716638={sessionToken}; path=/" }
                 }
             }))
             .Select(tokenToRequestMessage =>
@@ -134,7 +135,7 @@ public class BasicCookieIntegrationTests
             _testOutputHelper.WriteLine(response.ToString());
             response.EnsureSuccessStatusCode(); // Status Code 200-299
             response.Headers.GetValues("Set-Cookie").Should()
-                .Equal(ImmutableList<string>.Empty.Add($"csmsdb-TestDatabase={sessionToken}; path=/"));
+                .Equal(ImmutableList<string>.Empty.Add($"csmsdb-716638={sessionToken}; path=/"));
         }
     }
 
@@ -189,7 +190,7 @@ public class BasicCookieIntegrationTests
                 builder
                     .ConfigureTestServices(services =>
                     {
-                        services.AddSingleton<CosmosClient>(provider =>
+                        services.AddSingleton(provider =>
                             provider
                                 .GetRequiredService<IProxyGenerator>()
                                 .CreateClassProxyWithTarget(_fakeCosmos,

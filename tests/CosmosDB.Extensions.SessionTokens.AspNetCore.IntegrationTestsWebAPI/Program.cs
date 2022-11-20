@@ -26,7 +26,7 @@ builder.Services.AddSingleton<GetCurrentContextDelegate<HttpContext>>(provider =
 });
 builder.Services.AddSingleton<ICosmosDbContextSessionTokenManager<HttpContext>>(provider => provider.GetRequiredService<CosmosDbContextSessionTokenManager>());
 
-builder.Services.AddSingleton<CosmosClient>(provider =>
+builder.Services.AddSingleton(provider =>
 {
     CosmosClient client = new(builder.Configuration["CosmosDB:PrimaryConnectionString"]);
 

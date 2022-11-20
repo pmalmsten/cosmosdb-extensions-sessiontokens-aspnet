@@ -42,7 +42,9 @@ public class CosmosDbClientInterceptor<T> : IInterceptor
                 invocation.ReturnValue = _generator.CreateClassProxyWithTarget(
                     value,
                     new CosmosDbContainerInterceptor<T>(
-                        (string)invocation.Arguments[0],
+                        accountEndpoint: ((CosmosClient)invocation.InvocationTarget).Endpoint,
+                        databaseName: (string)invocation.Arguments[0],
+                        containerName: (string)invocation.Arguments[1],
                         _contextAccessor,
                         _cosmosDbContextSessionTokenManager,
                         _containerLogger));

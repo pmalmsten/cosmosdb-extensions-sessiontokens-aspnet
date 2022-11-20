@@ -88,6 +88,3 @@ DB in responses are set on the cookies in the response.
       session token returned for the most recently completed write (a write has 'completed' when an `await` on
       the `Task<T>` for that write call returns) issued in the context of that HTTP request. (This matches the behavior
       of the Cosmos DB .NET SDK).
-* Cookie middleware (preserves Cosmos DB session tokens by sending them to callers as cookies):
-    * **Cosmos DB database names are used in the name of each cookie**. If your Cosmos DB database names contain
-      sensitive information that must not be sent to users of your API or web app, do not use this feature.
