@@ -42,7 +42,7 @@ public abstract class CosmosDbSessionTokenHttpMiddleware
     /// </summary>
     /// <param name="context">The HttpContext to read from.</param>
     /// <returns>A dictionary of calculated Container codes to Cosmos DB session token value.</returns>
-    protected abstract ConcurrentDictionary<uint, string>
+    protected abstract ConcurrentDictionary<uint, SessionTokenWithSource>
         ReadIncomingCosmosDbDatabaseSessionTokensFromHttpRequest(
             HttpContext context);
 
@@ -53,5 +53,5 @@ public abstract class CosmosDbSessionTokenHttpMiddleware
     /// <param name="containerCodeToSessionTokenDictionary">A dictionary of calculated Container codes
     /// to Cosmos DB session token value.</param>
     protected abstract void SetOutgoingCosmosDbSessionTokensOnHttpResponse(HttpContext context,
-        IReadOnlyDictionary<uint, string> containerCodeToSessionTokenDictionary);
+        IReadOnlyDictionary<uint, SessionTokenWithSource> containerCodeToSessionTokenDictionary);
 }

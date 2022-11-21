@@ -18,13 +18,13 @@ public interface ICosmosDbContextSessionTokenManager<in T>
         Uri accountEndpoint,
         string databaseName,
         string containerName,
-        string? sessionToken);
+        SessionTokenWithSource? sessionToken);
 
     public void SetSessionTokensForContext(
         HttpContext context,
-        ConcurrentDictionary<uint, string> containerCodeToSessionTokens);
+        ConcurrentDictionary<uint, SessionTokenWithSource> containerCodeToSessionTokens);
 
     public bool TryGetSessionTokensForHttpContext(
         HttpContext context,
-        [NotNullWhen(true)] out ConcurrentDictionary<uint, string>? containerCodeToSessionTokens);
+        [NotNullWhen(true)] out ConcurrentDictionary<uint, SessionTokenWithSource>? containerCodeToSessionTokens);
 }

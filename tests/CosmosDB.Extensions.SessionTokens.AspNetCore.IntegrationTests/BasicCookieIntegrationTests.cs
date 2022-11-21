@@ -27,9 +27,9 @@ public class BasicCookieIntegrationTests
     public BasicCookieIntegrationTests(WebApplicationFactory<Program> factory, ITestOutputHelper testOutputHelper)
     {
         _factory = factory;
-        _testOutputHelper = new DisconnectableTestOutputLogger(testOutputHelper);
+        _testOutputHelper = new(testOutputHelper);
 
-        A.CallTo(() => _fakeCosmos.Endpoint).Returns(new Uri("https://cosmos.azure.com"));
+        A.CallTo(() => _fakeCosmos.Endpoint).Returns(new("https://cosmos.azure.com"));
         A.CallTo(() => _fakeCosmos.GetContainer("TestDatabase", "TestContainer"))
             .Returns(_fakeContainer);
     }
@@ -169,6 +169,46 @@ public class BasicCookieIntegrationTests
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
         response.Headers.TryGetValues("Set-Cookie", out _).Should().BeFalse();
+    }
+
+    /// <summary>
+    /// When a read happens after a write, the session token collected from the read response must not overwrite
+    /// the session token value collected from the write response. Session tokens only change on writes - this
+    /// ensures that concurrent reads & writes cannot result in the session token value from a write to be "lost"
+    /// because a concurrent read completed after the write completed.
+    /// </summary>
+    [Fact]
+    public async Task SessionTokenReturnedForReadDoesNotOverwriteSessionTokenReturnedForWrite()
+    {
+        // Arrange
+        var client = CreateHttpClientWithMockedCosmos();
+
+        var writeSessionToken = "WriteSessionToken";
+        var mockWriteResponse = A.Fake<ItemResponse<Document>>();
+        A.CallTo(() => mockWriteResponse.Headers.Session).Returns(writeSessionToken);
+
+        A.CallTo(() =>
+                _fakeContainer.ReplaceItemAsync(
+                    A<Document>._, A<string>._, A<PartitionKey>._,A<ItemRequestOptions>._, A<CancellationToken>._))
+            .Returns(mockWriteResponse);
+        
+        var readSessionToken = "ReadSessionToken";
+        var mockReadResponse = A.Fake<ItemResponse<Document>>();
+        A.CallTo(() => mockReadResponse.Headers.Session).Returns(readSessionToken);
+
+        A.CallTo(() =>
+                _fakeContainer.ReadItemAsync<Document>(A<string>._, A<PartitionKey>._, A<ItemRequestOptions>._,
+                    A<CancellationToken>._))
+            .Returns(mockReadResponse);
+        
+        // Act
+        var response = await client.GetAsync("Test/WriteFollowedByRead");
+        _testOutputHelper.WriteLine(response.ToString());
+
+        // Assert
+        response.EnsureSuccessStatusCode(); // Status Code 200-299
+        response.Headers.GetValues("Set-Cookie").Should()
+            .Equal(ImmutableList<string>.Empty.Add($"csmsdb-716638={writeSessionToken}; path=/"));
     }
 
     private void MockReadItemAsyncReturnsSessionToken()

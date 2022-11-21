@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
@@ -12,6 +14,37 @@ public delegate T? GetCurrentContextDelegate<out T>();
 
 public class CosmosDbContainerInterceptor<T> : IInterceptor
 {
+    private enum MethodClassification
+    {
+        Read,
+        Write
+    }
+
+    private static readonly IReadOnlyDictionary<string, MethodClassification> CosmosDbMethodNameToClassification =
+        ImmutableDictionary<string, MethodClassification>.Empty
+            .Add(nameof(Container.CreateItemAsync), MethodClassification.Write)
+            .Add(nameof(Container.DeleteContainerAsync), MethodClassification.Write)
+            .Add(nameof(Container.DeleteItemAsync), MethodClassification.Write)
+            .Add(nameof(Container.PatchItemAsync), MethodClassification.Write)
+            .Add(nameof(Container.ReadContainerAsync), MethodClassification.Read)
+            .Add(nameof(Container.ReadItemAsync), MethodClassification.Read)
+            .Add(nameof(Container.ReplaceContainerAsync), MethodClassification.Write)
+            .Add(nameof(Container.ReplaceItemAsync), MethodClassification.Write)
+            .Add(nameof(Container.ReplaceThroughputAsync), MethodClassification.Write)
+            .Add(nameof(Container.UpsertItemAsync), MethodClassification.Write)
+            .Add(nameof(Container.CreateItemStreamAsync), MethodClassification.Write)
+            .Add(nameof(Container.DeleteContainerStreamAsync), MethodClassification.Write)
+            .Add(nameof(Container.DeleteItemStreamAsync), MethodClassification.Write)
+            .Add(nameof(Container.PatchItemStreamAsync), MethodClassification.Write)
+            .Add(nameof(Container.ReadContainerStreamAsync), MethodClassification.Read)
+            .Add(nameof(Container.ReadContainerStreamAsync), MethodClassification.Read)
+            .Add(nameof(Container.ReadItemStreamAsync), MethodClassification.Read)
+            .Add(nameof(Container.ReadManyItemsAsync), MethodClassification.Read)
+            .Add(nameof(Container.ReplaceContainerStreamAsync), MethodClassification.Write)
+            .Add(nameof(Container.ReplaceItemStreamAsync), MethodClassification.Write)
+            .Add(nameof(Container.UpsertItemStreamAsync), MethodClassification.Write)
+            .Add(nameof(Container.ReadManyItemsStreamAsync), MethodClassification.Read);
+
     private readonly Uri _accountEndpoint;
     private readonly string _databaseName;
     private readonly string _containerName;
@@ -38,9 +71,10 @@ public class CosmosDbContainerInterceptor<T> : IInterceptor
     public void Intercept(IInvocation invocation)
     {
         using var scope = _logger.BeginScope(
-            "Invocation of {MethodName}, assigned invocation ID {InvocationId}", invocation.Method.Name, Guid.NewGuid());
+            "Invocation of {MethodName}, assigned invocation ID {InvocationId}", invocation.Method.Name,
+            Guid.NewGuid());
         _logger.LogTrace("Entering invocation");
-        
+
         try
         {
             SetSessionTokenOnRequestOptionsParameter(invocation);
@@ -49,7 +83,7 @@ public class CosmosDbContainerInterceptor<T> : IInterceptor
             invocation.Proceed();
             _logger.LogTrace("Calling invocation.Proceed() returned normally");
 
-            invocation.ReturnValue = DynamicDispatchAsyncVsSync((dynamic)invocation.ReturnValue);
+            invocation.ReturnValue = DynamicDispatchAsyncVsSync(invocation.Method, (dynamic)invocation.ReturnValue);
         }
         finally
         {
@@ -60,7 +94,7 @@ public class CosmosDbContainerInterceptor<T> : IInterceptor
     private void SetSessionTokenOnRequestOptionsParameter(IInvocation invocation)
     {
         _logger.LogDebug("Searching for RequestOptions parameter");
-        
+
         var parameterValuesWithIndex = invocation.Method.GetParameters()
             .Select((value, i) => (value, i));
 
@@ -87,11 +121,13 @@ public class CosmosDbContainerInterceptor<T> : IInterceptor
                     var sessionTokenForContextAndDatabase =
                         _cosmosDbContextSessionTokenManager.GetSessionTokenForContextFullyQualifiedContainer(
                             currentContext, _accountEndpoint, _databaseName, _containerName);
-                    
+
                     if (sessionTokenForContextAndDatabase != null)
                     {
                         sessionTokenProperty.SetValue(argumentValue, sessionTokenForContextAndDatabase);
-                        _logger.LogDebug("SessionToken property set on RequestOptions param at position {RequestOptionsParameterIndex}", i);
+                        _logger.LogDebug(
+                            "SessionToken property set on RequestOptions param at position {RequestOptionsParameterIndex}",
+                            i);
                     }
                     else
                     {
@@ -100,58 +136,88 @@ public class CosmosDbContainerInterceptor<T> : IInterceptor
                 }
                 else
                 {
-                    _logger.LogWarning("Current context is null, this call flow is not currently within a tracked context. Doing nothing");
+                    _logger.LogWarning(
+                        "Current context is null, this call flow is not currently within a tracked context. Doing nothing");
                 }
 
                 invocation.Arguments[i] = argumentValue;
                 break;
             }
 
-            _logger.LogDebug("RequestOptions param at {RequestOptionsParameterIndex} does not have a SessionToken property - ignoring it", i);
+            _logger.LogDebug(
+                "RequestOptions param at {RequestOptionsParameterIndex} does not have a SessionToken property - ignoring it",
+                i);
         }
     }
 
-    private async Task<TTask> DynamicDispatchAsyncVsSync<TTask>(Task<TTask> returnValueTask)
+    private async Task<TTask> DynamicDispatchAsyncVsSync<TTask>(MethodInfo methodInfo, Task<TTask> returnValueTask)
     {
         // Await result, then call synchronous overload.
         _logger.LogDebug("Return value was a Task<T>, awaiting it before continuing");
 
-        return DynamicDispatchAsyncVsSync(await returnValueTask);
+        return DynamicDispatchAsyncVsSync(methodInfo, await returnValueTask);
     }
 
-    private TResponse DynamicDispatchAsyncVsSync<TResponse>(TResponse response)
+    private TResponse DynamicDispatchAsyncVsSync<TResponse>(MethodInfo methodInfo, TResponse response)
     {
         if (response == null)
         {
-            _logger.LogWarning("Return value was unexpectedly null - unable to check for a session token from the Cosmos DB SDK");
+            _logger.LogWarning(
+                "Return value was unexpectedly null - unable to check for a session token from the Cosmos DB SDK");
             return response;
         }
-        
-        return (TResponse)DynamicDispatchReturnValueType((dynamic)response);
+
+        return (TResponse)DynamicDispatchReturnValueType(methodInfo, (dynamic)response);
     }
 
-    private Response<TResponse> DynamicDispatchReturnValueType<TResponse>(Response<TResponse> response)
+    private Response<TResponse> DynamicDispatchReturnValueType<TResponse>(MethodInfo methodInfo,
+        Response<TResponse> response)
     {
-        _logger.LogDebug("Session token captured from Cosmos DB Response<T>: {SessionToken}", response.Headers.Session);
+        var sessionTokenString = response.Headers.Session;
+        _logger.LogDebug("Session token captured from Cosmos DB Response<T>: {SessionToken}", sessionTokenString);
+
+        if (sessionTokenString == null)
+        {
+            _logger.LogDebug("Session token was null - not saved.");
+            return response;
+        }
 
         var currentContext = _getCurrentContextDelegate.Invoke();
         if (currentContext != null)
         {
+            var methodClassification = CosmosDbMethodNameToClassification[methodInfo.Name];
+
             _cosmosDbContextSessionTokenManager.SetSessionTokenForContextAndFullyQualifiedContainer(
-                currentContext, _accountEndpoint, _databaseName, _containerName, response.Headers.Session);
+                currentContext,
+                _accountEndpoint,
+                _databaseName,
+                _containerName,
+                new SessionTokenWithSource(
+                    methodClassification switch
+                    {
+                        MethodClassification.Read => SessionTokenSource.FromRead,
+                        MethodClassification.Write => SessionTokenSource.FromWrite,
+                        _ => throw new ArgumentOutOfRangeException(
+                            nameof(methodClassification),
+                            methodClassification.ToString())
+                    },
+                    sessionTokenString
+                ));
             _logger.LogDebug("Current context was not null, session token was saved");
         }
         else
         {
-            _logger.LogWarning("Current context is null, this call flow is not currently within a tracked context. Session token not saved");
+            _logger.LogWarning(
+                "Current context is null, this call flow is not currently within a tracked context. Session token not saved");
         }
 
         return response;
     }
 
-    private object DynamicDispatchReturnValueType(object response)
+    private object DynamicDispatchReturnValueType(MethodInfo methodInfo, object response)
     {
-        _logger.LogWarning("Return value was not a Response<> instance - actual type was {ReturnValueType}", response.GetType());
+        _logger.LogDebug("Return value was not a Response<> instance - actual type was {ReturnValueType}",
+            response.GetType());
         return response;
     }
 }

@@ -20,13 +20,21 @@ public class TestController : ControllerBase
     [HttpGet]
     public async Task<Document> OkEndpoint()
     {
-        return await _container.ReadItemAsync<Document>(TestId, new PartitionKey(TestPartitionKey));
+        return await _container.ReadItemAsync<Document>(TestId, new(TestPartitionKey));
+    }
+    
+    [HttpGet("WriteFollowedByRead")]
+    public async Task<Document> WriteFollowedByReadEndpoint()
+    {
+        await _container.ReplaceItemAsync(new Document(), TestId, new PartitionKey(TestPartitionKey));
+        
+        return await _container.ReadItemAsync<Document>(TestId, new(TestPartitionKey));
     }
     
     [HttpGet("401")]
     public async Task<IActionResult> UnauthorizedEndpoint()
     {
-        await _container.ReadItemAsync<Document>(TestId, new PartitionKey(TestPartitionKey));
+        await _container.ReadItemAsync<Document>(TestId, new(TestPartitionKey));
 
         return StatusCode(401);
     }
@@ -34,7 +42,7 @@ public class TestController : ControllerBase
     [HttpGet("403")]
     public async Task<IActionResult> AccessDeniedEndpoint()
     {
-        await _container.ReadItemAsync<Document>(TestId, new PartitionKey(TestPartitionKey));
+        await _container.ReadItemAsync<Document>(TestId, new(TestPartitionKey));
 
         return StatusCode(403);
     }

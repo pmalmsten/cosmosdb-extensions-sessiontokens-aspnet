@@ -59,6 +59,7 @@ graph LR;
 These libraries make it really easy to do that with ASP.NET.
 
 [Session Consistency]: https://learn.microsoft.com/en-us/azure/cosmos-db/consistency-levels#session-consistency
+
 [UtilizeSessionTokens]: https://learn.microsoft.com/en-us/azure/cosmos-db/nosql/how-to-manage-consistency?tabs=portal%2Cdotnetv2%2Capi-async#utilize-session-tokens
 
 ## Projects
@@ -67,11 +68,12 @@ These libraries make it really easy to do that with ASP.NET.
 
 Automatically propagates Cosmos DB session tokens to and from HTTP requests for you in ASP.NET Core.
 
-This is done by sending the Cosmos DB session token to clients as cookies in HTTP responses. Cosmos DB session tokens included in
-cookies on incoming HTTP requests are injected into Cosmos DB SDK calls for that HTTP request, and session tokens returned by Cosmos
-DB in responses are set on the cookies in the response.
+This is done by sending the Cosmos DB session token to clients as cookies in HTTP responses. Cosmos DB session tokens
+included in cookies on incoming HTTP requests are injected into Cosmos DB SDK calls for that HTTP request, and session
+tokens returned by Cosmos DB in responses are set on the cookies in the response.
 
 #### Requirements
+
 * Target framework: `net6.0`
 * ASP.NET Core
 
@@ -82,8 +84,9 @@ DB in responses are set on the cookies in the response.
       token returned for the most recently completed write wins**. As a result, read-your-own-writes consistency
       guarantees will apply only for the chain of writes whose session token completed last - other writes might not be
       reflected in future reads. The Cosmos DB API does not accept more than one session token on a given read request,
-      so this cannot be mitigated. To guarantee read-your-own-writes semantics apply for all writes issued by your
-      application in the context of a single HTTP request, do not issue the writes to Cosmos DB in parallel.
+      and no method of merging session tokens is documented, so we can only choose one session token value to keep. To
+      guarantee read-your-own-writes semantics apply for all writes issued by your application in the context of a
+      single HTTP request, do not issue the writes to Cosmos DB in parallel.
     * When your application issues a Cosmos DB read or query while processing an HTTP request, that read will use the
       session token returned for the most recently completed write (a write has 'completed' when an `await` on
       the `Task<T>` for that write call returns) issued in the context of that HTTP request. (This matches the behavior

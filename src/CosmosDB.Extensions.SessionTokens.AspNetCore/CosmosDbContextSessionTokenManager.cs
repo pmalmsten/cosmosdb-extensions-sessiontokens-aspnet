@@ -11,10 +11,10 @@ namespace CosmosDB.Extensions.SessionTokens.AspNetCore;
 
 public class CosmosDbContextSessionTokenManager : ICosmosDbContextSessionTokenManager<HttpContext>
 {
-    private readonly ConditionalWeakTable<HttpContext, ConcurrentDictionary<uint, string>>
+    private readonly ConditionalWeakTable<HttpContext, ConcurrentDictionary<uint, SessionTokenWithSource>>
         _httpContextToContainerCodeSessionTokenDictionary = new();
 
-    private readonly MemoryCache _cache = new MemoryCache(new MemoryCacheOptions());
+    private readonly MemoryCache _cache = new(new MemoryCacheOptions());
 
     public string? GetSessionTokenForContextFullyQualifiedContainer(
         HttpContext context, 
@@ -26,7 +26,12 @@ public class CosmosDbContextSessionTokenManager : ICosmosDbContextSessionTokenMa
 
         if (_httpContextToContainerCodeSessionTokenDictionary.TryGetValue(context, out var databaseSessionTokenMap))
         {
-            databaseSessionTokenMap.TryGetValue(CalculateContainerCode(accountEndpoint, databaseName, containerName), out result);
+            if (databaseSessionTokenMap.TryGetValue(
+                    CalculateContainerCode(accountEndpoint, databaseName, containerName),
+                    out var sessionTokenWithContext))
+            {
+                result = sessionTokenWithContext.SessionToken;
+            }
         }
 
         return result;
@@ -37,26 +42,29 @@ public class CosmosDbContextSessionTokenManager : ICosmosDbContextSessionTokenMa
         Uri accountEndpoint, 
         string databaseName,
         string containerName, 
-        string? sessionToken)
+        SessionTokenWithSource? newSessionToken)
     {
-        if (sessionToken == null)
+        if (newSessionToken == null)
         {
             return;
         }
 
         _httpContextToContainerCodeSessionTokenDictionary
             .GetOrCreateValue(context)
-            .AddOrUpdate(CalculateContainerCode(accountEndpoint, databaseName, containerName), sessionToken, (_, _) => sessionToken);
+            .AddOrUpdate(
+                CalculateContainerCode(accountEndpoint, databaseName, containerName), 
+                newSessionToken.Value, 
+                (_, existingSessionToken) => existingSessionToken.ChooseTokenToKeepBySourcePriority(newSessionToken.Value));
     }
 
     public void SetSessionTokensForContext(HttpContext context,
-        ConcurrentDictionary<uint, string> containerCodeToSessionTokens)
+        ConcurrentDictionary<uint, SessionTokenWithSource> containerCodeToSessionTokens)
     {
         _httpContextToContainerCodeSessionTokenDictionary.Add(context, containerCodeToSessionTokens);
     }
 
     public bool TryGetSessionTokensForHttpContext(HttpContext context,
-        [NotNullWhen(true)] out ConcurrentDictionary<uint, string>? containerCodeToSessionTokens)
+        [NotNullWhen(true)] out ConcurrentDictionary<uint, SessionTokenWithSource>? containerCodeToSessionTokens)
     {
         return _httpContextToContainerCodeSessionTokenDictionary.TryGetValue(context, out containerCodeToSessionTokens);
     }

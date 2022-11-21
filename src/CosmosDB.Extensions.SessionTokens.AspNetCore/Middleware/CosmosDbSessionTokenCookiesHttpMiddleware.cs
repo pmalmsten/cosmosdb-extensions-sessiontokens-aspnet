@@ -18,10 +18,10 @@ public class CosmosDbSessionTokenCookiesHttpMiddleware : CosmosDbSessionTokenHtt
     {
     }
 
-    protected override ConcurrentDictionary<uint, string>
+    protected override ConcurrentDictionary<uint, SessionTokenWithSource>
         ReadIncomingCosmosDbDatabaseSessionTokensFromHttpRequest(HttpContext context)
     {
-        ConcurrentDictionary<uint, string> result = new ConcurrentDictionary<uint, string>();
+        ConcurrentDictionary<uint, SessionTokenWithSource> result = new();
 
         foreach (KeyValuePair<string, string> cookie in context.Request.Cookies
                      .Where(it => it.Key.StartsWith(CosmosDbSessionTokenCookiePrefix)))
@@ -29,7 +29,12 @@ public class CosmosDbSessionTokenCookiesHttpMiddleware : CosmosDbSessionTokenHtt
             var containerCodeFromCookieName = ContainerCodeFromCookieName(cookie.Key);
             if (containerCodeFromCookieName != null)
             {
-                result.AddOrUpdate(containerCodeFromCookieName.Value, cookie.Value, (_, _) => cookie.Value);
+                var newSessionToken = new SessionTokenWithSource(SessionTokenSource.FromIncomingRequest, cookie.Value);
+                
+                result.AddOrUpdate(
+                    containerCodeFromCookieName.Value, 
+                    newSessionToken, 
+                    (_, _) => newSessionToken);
             }
         }
 
@@ -37,7 +42,7 @@ public class CosmosDbSessionTokenCookiesHttpMiddleware : CosmosDbSessionTokenHtt
     }
 
     protected override void SetOutgoingCosmosDbSessionTokensOnHttpResponse(HttpContext context,
-        IReadOnlyDictionary<uint, string> containerCodeToSessionTokenDictionary)
+        IReadOnlyDictionary<uint, SessionTokenWithSource> containerCodeToSessionTokenDictionary)
     {
         if (!ShouldIncludeCookiesForResponseStatusCode(context.Response.StatusCode))
         {
@@ -46,7 +51,7 @@ public class CosmosDbSessionTokenCookiesHttpMiddleware : CosmosDbSessionTokenHtt
 
         foreach (var pair in containerCodeToSessionTokenDictionary)
         {
-            context.Response.Cookies.Append(CookieNameForContainerCode(pair.Key), pair.Value);
+            context.Response.Cookies.Append(CookieNameForContainerCode(pair.Key), pair.Value.SessionToken);
         }
     }
 
