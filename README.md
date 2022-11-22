@@ -3,6 +3,9 @@ Cosmos DB Session Token Extensions for ASP.NET
 Gives users of your web app/API read-your-own-writes consistency by automatically associating Cosmos DB session tokens
 with HTTP clients or sessions in ASP.NET.
 
+**Note: This is a small project created and maintained by an individual developer at Microsoft - as such, this project
+is not formally supported by Microsoft.**
+
 ## Who is this for?
 
 If you:
@@ -91,3 +94,23 @@ tokens returned by Cosmos DB in responses are set on the cookies in the response
       session token returned for the most recently completed write (a write has 'completed' when an `await` on
       the `Task<T>` for that write call returns) issued in the context of that HTTP request. (This matches the behavior
       of the Cosmos DB .NET SDK).
+
+## Contributing
+
+This project has adopted the [Microsoft Open Source Code of Conduct](https://opensource.microsoft.com/codeofconduct/).
+For more information see the [Code of Conduct FAQ](https://opensource.microsoft.com/codeofconduct/faq/) or
+contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additional questions or comments.
+
+## Support
+
+For any questions, comments, suggestions, or bug reports, please create a GitHub Issue on this project.
+
+Microsoft does not formally support this project.
+
+## Trademarks
+
+This project may contain trademarks or logos for projects, products, or services. Authorized use of Microsoft trademarks
+or logos is subject to and must follow
+[Microsoft's Trademark & Brand Guidelines](https://www.microsoft.com/en-us/legal/intellectualproperty/trademarks/usage/general)
+. Use of Microsoft trademarks or logos in modified versions of this project must not cause confusion or imply Microsoft
+sponsorship. Any use of third-party trademarks or logos are subject to those third-party's policies.
