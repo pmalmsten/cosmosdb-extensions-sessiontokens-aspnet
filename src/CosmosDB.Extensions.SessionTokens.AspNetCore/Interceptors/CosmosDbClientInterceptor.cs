@@ -4,7 +4,7 @@ using Microsoft.Extensions.Logging;
 
 namespace CosmosDB.Extensions.SessionTokens.AspNetCore.Interceptors;
 
-public class CosmosDbClientInterceptor<T> : IInterceptor
+internal class CosmosDbClientInterceptor<T> : IInterceptor
 {
     private readonly IProxyGenerator _generator;
     private readonly GetCurrentContextDelegate<T> _contextAccessor;

@@ -9,7 +9,7 @@ using Microsoft.Extensions.Caching.Memory;
 
 namespace CosmosDB.Extensions.SessionTokens.AspNetCore;
 
-public class CosmosDbContextSessionTokenManager : ICosmosDbContextSessionTokenManager<HttpContext>
+internal class CosmosDbContextSessionTokenManager : ICosmosDbContextSessionTokenManager<HttpContext>
 {
     private readonly ConditionalWeakTable<HttpContext, ConcurrentDictionary<uint, SessionTokenWithSource>>
         _httpContextToContainerCodeSessionTokenDictionary = new();

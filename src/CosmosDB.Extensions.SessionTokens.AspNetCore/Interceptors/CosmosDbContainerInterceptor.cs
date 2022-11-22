@@ -52,7 +52,7 @@ public class CosmosDbContainerInterceptor<T> : IInterceptor
     private readonly ICosmosDbContextSessionTokenManager<T> _cosmosDbContextSessionTokenManager;
     private readonly ILogger<CosmosDbContainerInterceptor<T>> _logger;
 
-    public CosmosDbContainerInterceptor(
+    internal CosmosDbContainerInterceptor(
         Uri accountEndpoint,
         string databaseName,
         string containerName,

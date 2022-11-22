@@ -1,6 +1,4 @@
-using Castle.DynamicProxy;
 using CosmosDB.Extensions.SessionTokens.AspNetCore;
-using CosmosDB.Extensions.SessionTokens.AspNetCore.Interceptors;
 using CosmosDB.Extensions.SessionTokens.AspNetCore.Middleware;
 using Microsoft.Azure.Cosmos;
 
@@ -13,26 +11,12 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddLogging();
-builder.Services.AddHttpContextAccessor();
 
-builder.Services.AddSingleton<IProxyGenerator>(new ProxyGenerator());
-builder.Services.AddSingleton<CosmosDbClientInterceptor<HttpContext>>();
-builder.Services.AddSingleton<CosmosDbContextSessionTokenManager>();
+builder.Services.AddCosmosDbSessionTokenTracingServices();
 
-builder.Services.AddSingleton<GetCurrentContextDelegate<HttpContext>>(provider =>
-{
-    var httpContextAccessor = provider.GetRequiredService<IHttpContextAccessor>();
-    return () => httpContextAccessor.HttpContext;
-});
-builder.Services.AddSingleton<ICosmosDbContextSessionTokenManager<HttpContext>>(provider => provider.GetRequiredService<CosmosDbContextSessionTokenManager>());
-
-builder.Services.AddSingleton(provider =>
-{
-    CosmosClient client = new(builder.Configuration["CosmosDB:PrimaryConnectionString"]);
-
-    return provider.GetRequiredService<IProxyGenerator>()
-        .CreateClassProxyWithTarget(client, provider.GetRequiredService<CosmosDbClientInterceptor<HttpContext>>());
-});
+builder.Services.AddSingleton(provider => 
+    new CosmosClient(builder.Configuration["CosmosDB:PrimaryConnectionString"])
+        .WithSessionTokenTracing(provider));
 
 builder.Services.AddHttpLogging(logging =>
 {
@@ -42,7 +26,7 @@ builder.Services.AddHttpLogging(logging =>
 
 var app = builder.Build();
 
-app.UseMiddleware<CosmosDbSessionTokenCookiesHttpMiddleware>();
+app.UseMiddleware<CosmosDbSessionTokenCookiesMiddleware>();
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
