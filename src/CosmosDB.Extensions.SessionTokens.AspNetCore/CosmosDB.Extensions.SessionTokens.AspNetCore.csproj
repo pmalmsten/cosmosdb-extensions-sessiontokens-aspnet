@@ -5,6 +5,15 @@
         <Nullable>enable</Nullable>
         <WarningsAsErrors>Nullable</WarningsAsErrors>
     </PropertyGroup>
+    
+    <PropertyGroup>
+        <PackageId>CosmosDB.Extensions.SessionTokens.AspNetCore</PackageId>
+        <Description>Cosmos DB extensions for managing session tokens with ASP.NET Core</Description>
+        <AssemblyName>CosmosDB.Extensions.SessionTokens.AspNetCore</AssemblyName>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <PackageProjectUrl>https://github.com/pmalmsten/cosmosdb-extensions-sessiontokens-aspnet</PackageProjectUrl>
+        <Authors>Paul Malmsten</Authors>
+    </PropertyGroup>
 
     <ItemGroup>
         <FrameworkReference Include="Microsoft.AspNetCore.App" />
