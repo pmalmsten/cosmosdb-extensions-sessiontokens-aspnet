@@ -82,6 +82,9 @@ tokens returned by Cosmos DB in responses are set on the cookies in the response
 
 #### How to Onboard
 
+> **_NOTE:_**  This library is not yet stable. Public APIs may be subject to backwards-incompatible changes. Use caution 
+> before using this library with production workloads.
+
 ##### Step 1: Register services
 
 ```c#
