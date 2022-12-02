@@ -25,5 +25,5 @@ jobs:
         run: >
           dotnet nuget push 
           src/CosmosDB.Extensions.SessionTokens.AspNetCore/bin/Release/CosmosDB.Extensions.SessionTokens.AspNetCore.${{ github.event.release.tag_name }}.nupkg
-          --source https://apiint.nugettest.org/v3/index.json
-          --api-key ${{ secrets.NUGETTEST_API_KEY }}
+          --source https://api.nuget.org/v3/index.json
+          --api-key ${{ secrets.NUGET_API_KEY }}
