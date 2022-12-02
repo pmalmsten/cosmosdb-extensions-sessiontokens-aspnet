@@ -21,7 +21,7 @@ jobs:
          -p:ContinuousIntegrationBuild=true
          -p:PackageVersion=${{ github.event.release.tag_name }}
          src/CosmosDB.Extensions.SessionTokens.AspNetCore/CosmosDB.Extensions.SessionTokens.AspNetCore.csproj
-      - name: Publish CosmosDB.Extensions.SessionTokens.AspNetCore to int.nugettest.org
+      - name: Publish CosmosDB.Extensions.SessionTokens.AspNetCore to nuget.org
         run: >
           dotnet nuget push 
           src/CosmosDB.Extensions.SessionTokens.AspNetCore/bin/Release/CosmosDB.Extensions.SessionTokens.AspNetCore.${{ github.event.release.tag_name }}.nupkg
