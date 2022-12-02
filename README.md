@@ -68,7 +68,7 @@ These libraries make it really easy to do that with ASP.NET.
 ## Projects
 
 ### CosmosDB.Extensions.SessionTokens.AspNetCore
-![Nuget (with prereleases)](https://img.shields.io/nuget/vpre/CosmosDB.Extensions.SessionTokens.AspNetCore)
+[![Nuget (with prereleases)](https://img.shields.io/nuget/vpre/CosmosDB.Extensions.SessionTokens.AspNetCore)](https://www.nuget.org/packages/CosmosDB.Extensions.SessionTokens.AspNetCore)
 
 Automatically propagates Cosmos DB session tokens to and from HTTP requests for you in ASP.NET Core.
 
