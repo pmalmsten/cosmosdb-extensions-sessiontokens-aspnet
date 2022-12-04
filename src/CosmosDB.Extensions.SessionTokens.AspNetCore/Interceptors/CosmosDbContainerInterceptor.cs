@@ -83,7 +83,13 @@ public class CosmosDbContainerInterceptor<T> : IInterceptor
             invocation.Proceed();
             _logger.LogTrace("Calling invocation.Proceed() returned normally");
 
-            invocation.ReturnValue = DynamicDispatchAsyncVsSync(invocation.Method, (dynamic)invocation.ReturnValue);
+            // Dynamically dispatch this call at runtime in order to properly handle 1) return values of Task<T>
+            // that need to be awaited, and 2) all other return values that don't need to be awaited.
+            // For Task<T> return values, we must update the return value here in order to guarantee that
+            // `await`ing application code only resumes *after* this interceptor has processed the return value within
+            // the Task; this call will return a new Task representing the completion of processing the original return
+            // value.
+            invocation.ReturnValue = InterceptReturnValue(invocation.Method, (dynamic)invocation.ReturnValue);
         }
         finally
         {
@@ -93,17 +99,18 @@ public class CosmosDbContainerInterceptor<T> : IInterceptor
 
     private void SetSessionTokenOnRequestOptionsParameter(IInvocation invocation)
     {
-        _logger.LogDebug("Searching for RequestOptions parameter");
+        _logger.LogTrace("Searching for RequestOptions parameter");
 
         var parameterValuesWithIndex = invocation.Method.GetParameters()
             .Select((value, i) => (value, i));
 
+        bool sessionTokenInjectedIntoCallParams = false;
         foreach (var (parameterInfo, i) in parameterValuesWithIndex)
         {
             var parameterInfoParameterType = parameterInfo.ParameterType;
             if (!parameterInfoParameterType.IsAssignableTo(typeof(RequestOptions))) continue;
 
-            _logger.LogDebug("Found RequestOptions param at position {RequestOptionsParameterIndex}", i);
+            _logger.LogTrace("Found RequestOptions param at position {RequestOptionsParameterIndex}", i);
             PropertyInfo? sessionTokenProperty =
                 parameterInfoParameterType.GetProperty(nameof(ItemRequestOptions.SessionToken));
 
@@ -117,7 +124,7 @@ public class CosmosDbContainerInterceptor<T> : IInterceptor
                 var currentContext = _getCurrentContextDelegate.Invoke();
                 if (currentContext != null)
                 {
-                    _logger.LogDebug("Current context is not null, getting session token from manager");
+                    _logger.LogTrace("Current context is not null, getting session token from manager");
                     var sessionTokenForContextAndDatabase =
                         _cosmosDbContextSessionTokenManager.GetSessionTokenForContextFullyQualifiedContainer(
                             currentContext, _accountEndpoint, _databaseName, _containerName);
@@ -125,13 +132,14 @@ public class CosmosDbContainerInterceptor<T> : IInterceptor
                     if (sessionTokenForContextAndDatabase != null)
                     {
                         sessionTokenProperty.SetValue(argumentValue, sessionTokenForContextAndDatabase);
-                        _logger.LogDebug(
+                        _logger.LogTrace(
                             "SessionToken property set on RequestOptions param at position {RequestOptionsParameterIndex}",
                             i);
+                        sessionTokenInjectedIntoCallParams = true;
                     }
                     else
                     {
-                        _logger.LogDebug("Session token from manager is null, doing nothing");
+                        _logger.LogTrace("Session token from manager is null, doing nothing");
                     }
                 }
                 else
@@ -144,42 +152,82 @@ public class CosmosDbContainerInterceptor<T> : IInterceptor
                 break;
             }
 
-            _logger.LogDebug(
+            _logger.LogTrace(
                 "RequestOptions param at {RequestOptionsParameterIndex} does not have a SessionToken property - ignoring it",
                 i);
         }
+
+        _logger.LogDebug("Session Token injected into call parameters: {SessionTokenInjectedIntoCallParams}",
+            sessionTokenInjectedIntoCallParams);
     }
 
-    private async Task<TTask> DynamicDispatchAsyncVsSync<TTask>(MethodInfo methodInfo, Task<TTask> returnValueTask)
+    /// <summary>
+    /// If the return value is <see cref="Task{TResult}"/>, dynamic dispatch will call this method at runtime. This method
+    /// simply awaits the task, and calls the non-Task overload
+    /// <see cref="InterceptReturnValue{TNonTask}(System.Reflection.MethodInfo,TNonTask)"/> with the awaited value.
+    /// </summary>
+    /// <param name="methodInfo">Info about the method whose invocation was intercepted.</param>
+    /// <param name="returnValueTask">The Task returned by the intercepted method call.</param>
+    /// <typeparam name="TTask">The type of the value within the <see cref="Task{TResult}"/>.</typeparam>
+    /// <returns>A new <see cref="Task{TResult}"/> which completes when 1) the given return value Task completes,
+    /// and 2) the value contained within that <see cref="Task{TResult}"/> has been processed by this interceptor.</returns>
+    private async Task<TTask> InterceptReturnValue<TTask>(MethodInfo methodInfo, Task<TTask> returnValueTask)
     {
-        // Await result, then call synchronous overload.
-        _logger.LogDebug("Return value was a Task<T>, awaiting it before continuing");
+        _logger.LogTrace("Return value was a Task<T>, awaiting it before continuing");
 
-        return DynamicDispatchAsyncVsSync(methodInfo, await returnValueTask);
+        return InterceptReturnValue(methodInfo, await returnValueTask);
     }
 
-    private TResponse DynamicDispatchAsyncVsSync<TResponse>(MethodInfo methodInfo, TResponse response)
+    /// <summary>
+    /// Intercept the non-<see cref="Task{TResult}"/> return value of the intercepted method call.
+    /// </summary>
+    /// <remarks>
+    /// This method may be invoked by dynamic dispatch at runtime if the intercepted method call directly returns a
+    /// non-Task value.
+    /// </remarks>
+    /// <param name="methodInfo">Info about the method whose invocation was intercepted.</param>
+    /// <param name="returnValue">The value returned by the intercepted method call.</param>
+    /// <typeparam name="TNonTask">The type of the returned value.</typeparam>
+    /// <returns>The returned value.</returns>
+    private TNonTask InterceptReturnValue<TNonTask>(MethodInfo methodInfo, TNonTask returnValue)
     {
-        if (response == null)
+        if (returnValue == null)
         {
             _logger.LogWarning(
                 "Return value was unexpectedly null - unable to check for a session token from the Cosmos DB SDK");
-            return response;
+            return returnValue;
         }
 
-        return (TResponse)DynamicDispatchReturnValueType(methodInfo, (dynamic)response);
+        // Second dynamic dispatch in order to handle return values that are either 1) of type Response<T>, or 2)
+        // anything else.
+        bool sessionTokenSaved = TrySaveSessionTokenFromReturnValue(methodInfo, (dynamic)returnValue);
+
+        _logger.LogDebug("Session Token captured from return value: {SessionTokenCapturedFromResponse}",
+            sessionTokenSaved);
+        return returnValue;
     }
 
-    private Response<TResponse> DynamicDispatchReturnValueType<TResponse>(MethodInfo methodInfo,
+    /// <summary>
+    /// Try to save the Cosmos DB session token from the given <see cref="Response{T}"/>.
+    /// </summary>
+    /// <remarks>The correct overload of this method is selected at runtime by dynamic dispatch.</remarks>
+    /// <param name="methodInfo">Info about the method whose invocation was intercepted.</param>
+    /// <param name="response">The value returned by the intercepted method call.</param>
+    /// <typeparam name="TResponse">The type of value within the <see cref="Response{T}"/></typeparam>
+    /// <returns><c>true</c> if a session token was successfully saved; <c>false</c> otherwise.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">If the method call on <see cref="Container"/> is not
+    /// recognized.</exception>
+    private bool TrySaveSessionTokenFromReturnValue<TResponse>(
+        MethodInfo methodInfo,
         Response<TResponse> response)
     {
         var sessionTokenString = response.Headers.Session;
-        _logger.LogDebug("Session token captured from Cosmos DB Response<T>: {SessionToken}", sessionTokenString);
+        _logger.LogTrace("Session token captured from Cosmos DB Response<T>: {SessionToken}", sessionTokenString);
 
         if (sessionTokenString == null)
         {
-            _logger.LogDebug("Session token was null - not saved.");
-            return response;
+            _logger.LogTrace("Session token was null - not saved");
+            return false;
         }
 
         var currentContext = _getCurrentContextDelegate.Invoke();
@@ -203,21 +251,30 @@ public class CosmosDbContainerInterceptor<T> : IInterceptor
                     },
                     sessionTokenString
                 ));
-            _logger.LogDebug("Current context was not null, session token was saved");
-        }
-        else
-        {
-            _logger.LogWarning(
-                "Current context is null, this call flow is not currently within a tracked context. Session token not saved");
+            _logger.LogTrace("Current context was not null, session token was saved");
+            return true;
         }
 
-        return response;
+        _logger.LogWarning(
+            "Current context is null, this call flow is not currently within a tracked context. Session token not saved");
+        return false;
     }
 
-    private object DynamicDispatchReturnValueType(MethodInfo methodInfo, object response)
+    /// <summary>
+    /// Alternate overload for <see cref="TrySaveSessionTokenFromReturnValue{TResponse}"/> in the event that the
+    /// return value for the intercepted method call is not of type <see cref="Response{T}"/>.
+    /// </summary>
+    /// <remarks>The correct overload of this method is selected at runtime by dynamic dispatch.</remarks>
+    /// <param name="methodInfo">Info about the method whose invocation was intercepted.</param>
+    /// <param name="response">The value returned by the intercepted method call.</param>
+    /// <typeparam name="TResponse">The type of value within the <see cref="Response{T}"/></typeparam>
+    /// <returns><c>true</c> if a session token was successfully saved; <c>false</c> otherwise.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">If the method call on <see cref="Container"/> is not
+    /// recognized.</exception>
+    private bool TrySaveSessionTokenFromReturnValue(MethodInfo methodInfo, object returnValue)
     {
-        _logger.LogDebug("Return value was not a Response<> instance - actual type was {ReturnValueType}",
-            response.GetType());
-        return response;
+        _logger.LogTrace("Return value was not a Response<> instance - actual type was {ReturnValueType}",
+            returnValue.GetType());
+        return false;
     }
 }
