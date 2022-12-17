@@ -63,7 +63,7 @@ internal class CosmosDbContextSessionTokenManager : ICosmosDbContextSessionToken
         _httpContextToContainerCodeSessionTokenDictionary.Add(context, containerCodeToSessionTokens);
     }
 
-    public bool TryGetSessionTokensForHttpContext(HttpContext context,
+    public bool TryGetSessionTokensForContext(HttpContext context,
         [NotNullWhen(true)] out ConcurrentDictionary<uint, SessionTokenWithSource>? containerCodeToSessionTokens)
     {
         return _httpContextToContainerCodeSessionTokenDictionary.TryGetValue(context, out containerCodeToSessionTokens);

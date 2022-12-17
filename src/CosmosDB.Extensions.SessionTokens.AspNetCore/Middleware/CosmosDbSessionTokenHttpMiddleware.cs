@@ -25,7 +25,7 @@ public abstract class CosmosDbSessionTokenHttpMiddleware
 
         context.Response.OnStarting(() =>
         {
-            if (_sessionTokenManager.TryGetSessionTokensForHttpContext(context,
+            if (_sessionTokenManager.TryGetSessionTokensForContext(context,
                     out var containerCodeToSessionTokenDictionary))
             {
                 SetOutgoingCosmosDbSessionTokensOnHttpResponse(context, containerCodeToSessionTokenDictionary);
