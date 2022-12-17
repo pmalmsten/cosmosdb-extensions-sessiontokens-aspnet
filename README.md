@@ -117,18 +117,21 @@ This library uses `Microsft.Extensions.Logging` for logs. Set the log level for
 
 ## Limitations
 
-* If your application issues reads and writes to Cosmos DB parallel, some limitations apply:
-    * **When your application issues multiple Cosmos DB writes in parallel, the session token returned for the most
-      recently completed write wins**. As a result, read-your-own-writes consistency guarantees will apply only for the
-      chain of writes whose session token completed last - other writes might not be reflected in future reads. The
-      Cosmos DB API does not accept more than one session token on a given read request, and no method of merging
-      session tokens is documented, so we can only choose one session token value to keep. To guarantee
-      read-your-own-writes semantics apply for all writes issued by your application in the context of a single HTTP
-      request, do not issue the writes to Cosmos DB in parallel.
-    * When your application issues a Cosmos DB read or query while processing an HTTP request, that read will use the
-      session token returned for the most recently completed write (a write has 'completed' when an `await` on
-      the `Task<T>` for that write call returns) issued in the context of that HTTP request. (This matches the behavior
-      of the Cosmos DB .NET SDK).
+* Automatic session token management is only supported for the [NoSQL](https://learn.microsoft.com/en-us/azure/cosmos-db/choose-api#coresql-api) API.
+  * Only methods on the [Container](https://learn.microsoft.com/en-us/dotnet/api/microsoft.azure.cosmos.container?view=azure-dotnet) class
+    are supported. Calls to other NoSQL APIs will succeed, but Cosmos DB session tokens are not managed for them.
+* If your application issues reads and writes to Cosmos DB in parallel, some limitations apply:
+  * **When your application issues multiple Cosmos DB writes in parallel, the session token returned for the most
+    recently completed write wins**. As a result, read-your-own-writes consistency guarantees will apply only for the
+    chain of writes whose session token completed last - other writes might not be reflected in future reads. The
+    Cosmos DB API does not accept more than one session token on a given read request, and no method of merging
+    session tokens is documented, so we can only choose one session token value to keep. To guarantee
+    read-your-own-writes semantics apply for all writes issued by your application in the context of a single HTTP
+    request, do not issue the writes to Cosmos DB in parallel.
+  * When your application issues a Cosmos DB read or query while processing an HTTP request, that read will use the
+    session token returned for the most recently completed write (a write has 'completed' when an `await` on
+    the `Task<T>` for that write call returns) issued in the context of that HTTP request. (This matches the behavior
+    of the Cosmos DB .NET SDK).
 
 ## Contributing
 
