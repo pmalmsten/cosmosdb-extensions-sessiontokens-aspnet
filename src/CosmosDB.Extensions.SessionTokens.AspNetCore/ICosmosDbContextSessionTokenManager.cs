@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
-using Microsoft.AspNetCore.Http;
 
 namespace CosmosDB.Extensions.SessionTokens.AspNetCore;
 
@@ -21,10 +20,10 @@ public interface ICosmosDbContextSessionTokenManager<in T>
         SessionTokenWithSource? sessionToken);
 
     public void SetSessionTokensForContext(
-        HttpContext context,
+        T context,
         ConcurrentDictionary<uint, SessionTokenWithSource> containerCodeToSessionTokens);
 
-    public bool TryGetSessionTokensForHttpContext(
-        HttpContext context,
+    public bool TryGetSessionTokensForContext(
+        T context,
         [NotNullWhen(true)] out ConcurrentDictionary<uint, SessionTokenWithSource>? containerCodeToSessionTokens);
 }
