@@ -1,4 +1,5 @@
-﻿using Castle.DynamicProxy;
+﻿using System.Collections.Immutable;
+using Castle.DynamicProxy;
 using CosmosDB.Extensions.SessionTokens.AspNetCore;
 using CosmosDB.Extensions.SessionTokens.AspNetCore.Interceptors;
 using FakeItEasy;
@@ -32,6 +33,7 @@ public class CosmosDbContainerInterceptorTest
     private readonly PartitionKey _dummyItemPartitionKey = A.Dummy<PartitionKey>();
     private readonly ItemResponse<object> _dummyItemResponse = A.Dummy<ItemResponse<object>>();
     private readonly ResponseMessage _dummyResponseMessage = A.Fake<ResponseMessage>();
+    private readonly FeedResponse<object> _dummyFeedResponse = A.Dummy<FeedResponse<object>>();
 
     public CosmosDbContainerInterceptorTest(ITestOutputHelper testOutputHelper)
     {
@@ -92,7 +94,7 @@ public class CosmosDbContainerInterceptorTest
     }
 
     [Fact]
-    public async Task GetItemAsync_SessionTokenInjectedAndCaptured()
+    public async Task ReadItemAsync_SessionTokenInjectedAndCaptured()
     {
         A.CallTo(() =>
                 _fakeContainer.ReadItemAsync<object>(_dummyItemId, _dummyItemPartitionKey, A<ItemRequestOptions>._,
@@ -102,7 +104,49 @@ public class CosmosDbContainerInterceptorTest
         (await _container.ReadItemAsync<object>(_dummyItemId, _dummyItemPartitionKey))
             .Should().BeSameAs(_dummyItemResponse);
 
-        AssertContainerMethodCallIncludesSessionTokenInParamAtIndex(2);
+        AssertItemRequestOptionsIncludesSessionTokenAtIndex(2);
+    }
+    
+    [Fact]
+    public async Task ReadItemStreamAsync_SessionTokenInjectedAndCaptured()
+    {
+        A.CallTo(() =>
+                _fakeContainer.ReadItemStreamAsync(_dummyItemId, _dummyItemPartitionKey, A<ItemRequestOptions>._,
+                    A<CancellationToken>._))
+            .Returns(_dummyResponseMessage);
+
+        (await _container.ReadItemStreamAsync(_dummyItemId, _dummyItemPartitionKey))
+            .Should().BeSameAs(_dummyResponseMessage);
+
+        AssertItemRequestOptionsIncludesSessionTokenAtIndex(2);
+    }
+    
+    [Fact]
+    public async Task ReadManyItemsAsync_SessionTokenInjectedAndCaptured()
+    {
+        A.CallTo(() =>
+                _fakeContainer.ReadManyItemsAsync<object>(A<IReadOnlyList<(string, PartitionKey)>>._, A<ReadManyRequestOptions>._,
+                    A<CancellationToken>._))
+            .Returns(_dummyFeedResponse);
+
+        (await _container.ReadManyItemsAsync<object>(ImmutableList.Create((_dummyItemId, _dummyItemPartitionKey))))
+            .Should().BeSameAs(_dummyFeedResponse);
+
+        AssertReadManyRequestOptionsIncludesSessionTokenAtIndex(1);
+    }
+    
+    [Fact]
+    public async Task ReadManyItemsStreamAsync_SessionTokenInjectedAndCaptured()
+    {
+        A.CallTo(() =>
+                _fakeContainer.ReadManyItemsStreamAsync(A<IReadOnlyList<(string, PartitionKey)>>._, A<ReadManyRequestOptions>._,
+                    A<CancellationToken>._))
+            .Returns(_dummyResponseMessage);
+
+        (await _container.ReadManyItemsStreamAsync(ImmutableList.Create((_dummyItemId, _dummyItemPartitionKey))))
+            .Should().BeSameAs(_dummyResponseMessage);
+
+        AssertReadManyRequestOptionsIncludesSessionTokenAtIndex(1);
     }
 
     [Fact]
@@ -118,7 +162,7 @@ public class CosmosDbContainerInterceptorTest
         (await _container.ReplaceItemAsync(A.Dummy<object>(), _dummyItemId, _dummyItemPartitionKey))
             .Should().BeSameAs(_dummyItemResponse);
 
-        AssertContainerMethodCallIncludesSessionTokenInParamAtIndex(3);
+        AssertItemRequestOptionsIncludesSessionTokenAtIndex(3);
         AssertSessionTokenSavedFromResponse(SessionTokenSource.FromWrite, _dummyNewSessionToken);
     }
 
@@ -135,7 +179,7 @@ public class CosmosDbContainerInterceptorTest
         (await _container.ReplaceItemStreamAsync(A.Dummy<Stream>(), _dummyItemId, _dummyItemPartitionKey))
             .Should().BeSameAs(_dummyResponseMessage);
         
-        AssertContainerMethodCallIncludesSessionTokenInParamAtIndex(3);
+        AssertItemRequestOptionsIncludesSessionTokenAtIndex(3);
         AssertSessionTokenSavedFromResponse(SessionTokenSource.FromWrite, _dummyNewSessionToken);
     }
 
@@ -152,7 +196,7 @@ public class CosmosDbContainerInterceptorTest
         (await _container.CreateItemAsync(A.Dummy<object>(), _dummyItemPartitionKey))
             .Should().BeSameAs(_dummyItemResponse);
 
-        AssertContainerMethodCallIncludesSessionTokenInParamAtIndex(2);
+        AssertItemRequestOptionsIncludesSessionTokenAtIndex(2);
         AssertSessionTokenSavedFromResponse(SessionTokenSource.FromWrite, _dummyNewSessionToken);
     }
 
@@ -169,15 +213,22 @@ public class CosmosDbContainerInterceptorTest
         (await _container.CreateItemStreamAsync(A.Dummy<Stream>(), _dummyItemPartitionKey))
             .Should().BeSameAs(_dummyResponseMessage);
 
-        AssertContainerMethodCallIncludesSessionTokenInParamAtIndex(2);
+        AssertItemRequestOptionsIncludesSessionTokenAtIndex(2);
         AssertSessionTokenSavedFromResponse(SessionTokenSource.FromWrite, _dummyNewSessionToken);
     }
 
-    private void AssertContainerMethodCallIncludesSessionTokenInParamAtIndex(int paramIndex)
+    private void AssertItemRequestOptionsIncludesSessionTokenAtIndex(int paramIndex)
     {
         Fake.GetCalls(_fakeContainer)
             .Should().ContainSingle().Which.Arguments[paramIndex]
-            .Should().BeOfType<ItemRequestOptions>().Which.SessionToken.Should().Be(_dummySessionToken);
+            .Should().BeAssignableTo<ItemRequestOptions>().Which.SessionToken.Should().Be(_dummySessionToken);
+    }
+    
+    private void AssertReadManyRequestOptionsIncludesSessionTokenAtIndex(int paramIndex)
+    {
+        Fake.GetCalls(_fakeContainer)
+            .Should().ContainSingle().Which.Arguments[paramIndex]
+            .Should().BeAssignableTo<ReadManyRequestOptions>().Which.SessionToken.Should().Be(_dummySessionToken);
     }
 
     private void AssertSessionTokenSavedFromResponse(SessionTokenSource expectedSessionTokenSource,
