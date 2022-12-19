@@ -5,13 +5,14 @@ using FakeItEasy;
 using FluentAssertions;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Azure.Cosmos.Scripts;
-using Microsoft.Extensions.Logging;
 using Xunit;
+using Xunit.Abstractions;
 
 namespace CosmosDb.Extensions.SessionTokens.AspNetCore.UnitTests.Interceptors;
 
 public class CosmosDbContainerInterceptorTest
 {
+    private readonly ITestOutputHelper _testOutputHelper;
     private readonly Container _fakeContainer = A.Fake<Container>();
     private readonly Container _container;
 
@@ -26,9 +27,15 @@ public class CosmosDbContainerInterceptorTest
     private readonly string _dummyContainerName = A.Dummy<string>();
     private readonly int _dummyContext = A.Dummy<int>();
     private readonly string _dummySessionToken = A.Dummy<string>();
+    private readonly string _dummyNewSessionToken = A.Dummy<string>();
+    private readonly string _dummyItemId = A.Dummy<string>();
+    private readonly PartitionKey _dummyItemPartitionKey = A.Dummy<PartitionKey>();
+    private readonly ItemResponse<object> _dummyItemResponse = A.Dummy<ItemResponse<object>>();
+    private readonly ResponseMessage _dummyResponseMessage = A.Fake<ResponseMessage>();
 
-    public CosmosDbContainerInterceptorTest()
+    public CosmosDbContainerInterceptorTest(ITestOutputHelper testOutputHelper)
     {
+        _testOutputHelper = testOutputHelper;
         _container = new ProxyGenerator().CreateClassProxyWithTarget(
             _fakeContainer,
             new CosmosDbContainerInterceptor<int>(
@@ -37,7 +44,7 @@ public class CosmosDbContainerInterceptorTest
                 _dummyContainerName,
                 _fakeGetCurrentContextDelegate,
                 _fakeCosmosDbContextSessionTokenManager,
-                A.Dummy<ILogger<CosmosDbContainerInterceptor<int>>>()
+                testOutputHelper.BuildLoggerFor<CosmosDbContainerInterceptor<int>>()
             ));
 
         A.CallTo(() => _fakeGetCurrentContextDelegate()).Returns(_dummyContext);
@@ -87,51 +94,100 @@ public class CosmosDbContainerInterceptorTest
     [Fact]
     public async Task GetItemAsync_SessionTokenInjectedAndCaptured()
     {
-        var itemId = A.Dummy<string>();
-        var itemPartitionKey = A.Dummy<PartitionKey>();
-        var dummyResult = A.Dummy<ItemResponse<object>>();
-
         A.CallTo(() =>
-                _fakeContainer.ReadItemAsync<object>(itemId, itemPartitionKey, A<ItemRequestOptions>._,
+                _fakeContainer.ReadItemAsync<object>(_dummyItemId, _dummyItemPartitionKey, A<ItemRequestOptions>._,
                     A<CancellationToken>._))
-            .Returns(dummyResult);
+            .Returns(_dummyItemResponse);
 
-        (await _container.ReadItemAsync<object>(itemId, itemPartitionKey))
-            .Should().BeSameAs(dummyResult);
+        (await _container.ReadItemAsync<object>(_dummyItemId, _dummyItemPartitionKey))
+            .Should().BeSameAs(_dummyItemResponse);
 
-        Fake.GetCalls(_fakeContainer)
-            .Where(it => it.Method.Name == nameof(Container.ReadItemAsync))
-            .Should().ContainSingle().Which.Arguments[2]
-            .Should().BeOfType<ItemRequestOptions>().Which.SessionToken.Should().Be(_dummySessionToken);
+        AssertContainerMethodCallIncludesSessionTokenInParamAtIndex(2);
     }
 
     [Fact]
     public async Task ReplaceItemAsync_SessionTokenInjectedAndNewSessionTokenCaptured()
     {
-        var itemId = A.Dummy<string>();
-        var itemPartitionKey = A.Dummy<PartitionKey>();
-        var fakeResult = A.Fake<ItemResponse<object>>();
-        var newSessionToken = A.Dummy<string>();
-
         A.CallTo(() =>
-                _fakeContainer.ReplaceItemAsync(A<object>._, itemId, itemPartitionKey, A<ItemRequestOptions>._,
+                _fakeContainer.ReplaceItemAsync(A<object>._, _dummyItemId, _dummyItemPartitionKey, A<ItemRequestOptions>._,
                     A<CancellationToken>._))
-            .Returns(fakeResult);
+            .Returns(_dummyItemResponse);
 
-        A.CallTo(() => fakeResult.Headers.Session).Returns(newSessionToken);
+        A.CallTo(() => _dummyItemResponse.Headers.Session).Returns(_dummyNewSessionToken);
 
-        (await _container.ReplaceItemAsync(A.Dummy<object>(), itemId, itemPartitionKey))
-            .Should().BeSameAs(fakeResult);
+        (await _container.ReplaceItemAsync(A.Dummy<object>(), _dummyItemId, _dummyItemPartitionKey))
+            .Should().BeSameAs(_dummyItemResponse);
 
+        AssertContainerMethodCallIncludesSessionTokenInParamAtIndex(3);
+        AssertSessionTokenSavedFromResponse(SessionTokenSource.FromWrite, _dummyNewSessionToken);
+    }
+
+    [Fact]
+    public async Task ReplaceItemStreamAsync_SessionTokenInjectedAndNewSessionTokenCaptured()
+    {
+        A.CallTo(() =>
+                _fakeContainer.ReplaceItemStreamAsync(A<Stream>._, _dummyItemId, _dummyItemPartitionKey, A<ItemRequestOptions>._,
+                    A<CancellationToken>._))
+            .Returns(_dummyResponseMessage);
+
+        A.CallTo(() => _dummyResponseMessage.Headers.Session).Returns(_dummyNewSessionToken);
+
+        (await _container.ReplaceItemStreamAsync(A.Dummy<Stream>(), _dummyItemId, _dummyItemPartitionKey))
+            .Should().BeSameAs(_dummyResponseMessage);
+        
+        AssertContainerMethodCallIncludesSessionTokenInParamAtIndex(3);
+        AssertSessionTokenSavedFromResponse(SessionTokenSource.FromWrite, _dummyNewSessionToken);
+    }
+
+    [Fact]
+    public async Task CreateItemAsync_SessionTokenInjectedAndNewSessionTokenCaptured()
+    {
+        A.CallTo(() =>
+                _fakeContainer.CreateItemAsync(A<object>._, _dummyItemPartitionKey, A<ItemRequestOptions>._,
+                    A<CancellationToken>._))
+            .Returns(_dummyItemResponse);
+
+        A.CallTo(() => _dummyItemResponse.Headers.Session).Returns(_dummyNewSessionToken);
+
+        (await _container.CreateItemAsync(A.Dummy<object>(), _dummyItemPartitionKey))
+            .Should().BeSameAs(_dummyItemResponse);
+
+        AssertContainerMethodCallIncludesSessionTokenInParamAtIndex(2);
+        AssertSessionTokenSavedFromResponse(SessionTokenSource.FromWrite, _dummyNewSessionToken);
+    }
+
+    [Fact]
+    public async Task CreateItemStreamAsync_SessionTokenInjectedAndNewSessionTokenCaptured()
+    {
+        A.CallTo(() =>
+                _fakeContainer.CreateItemStreamAsync(A<Stream>._, _dummyItemPartitionKey, A<ItemRequestOptions>._,
+                    A<CancellationToken>._))
+            .Returns(_dummyResponseMessage);
+
+        A.CallTo(() => _dummyResponseMessage.Headers.Session).Returns(_dummyNewSessionToken);
+
+        (await _container.CreateItemStreamAsync(A.Dummy<Stream>(), _dummyItemPartitionKey))
+            .Should().BeSameAs(_dummyResponseMessage);
+
+        AssertContainerMethodCallIncludesSessionTokenInParamAtIndex(2);
+        AssertSessionTokenSavedFromResponse(SessionTokenSource.FromWrite, _dummyNewSessionToken);
+    }
+
+    private void AssertContainerMethodCallIncludesSessionTokenInParamAtIndex(int paramIndex)
+    {
         Fake.GetCalls(_fakeContainer)
-            .Should().ContainSingle().Which.Arguments[3]
+            .Should().ContainSingle().Which.Arguments[paramIndex]
             .Should().BeOfType<ItemRequestOptions>().Which.SessionToken.Should().Be(_dummySessionToken);
+    }
 
+    private void AssertSessionTokenSavedFromResponse(SessionTokenSource expectedSessionTokenSource,
+        string expectedSessionTokenValue)
+    {
         A.CallTo(() =>
                 _fakeCosmosDbContextSessionTokenManager.SetSessionTokenForContextAndFullyQualifiedContainer(
                     _dummyContext,
                     _dummyAccountEndpoint, _dummyDatabaseName, _dummyContainerName,
-                    new SessionTokenWithSource(SessionTokenSource.FromWrite, newSessionToken)))
+                    new SessionTokenWithSource(expectedSessionTokenSource, expectedSessionTokenValue)))
             .MustHaveHappenedOnceExactly();
     }
 }
