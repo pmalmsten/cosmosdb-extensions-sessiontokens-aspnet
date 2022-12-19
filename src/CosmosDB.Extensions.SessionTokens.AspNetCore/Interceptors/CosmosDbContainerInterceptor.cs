@@ -224,6 +224,48 @@ public class CosmosDbContainerInterceptor<T> : IInterceptor
         var sessionTokenString = response.Headers.Session;
         _logger.LogTrace("Session token captured from Cosmos DB Response<T>: {SessionToken}", sessionTokenString);
 
+        return TrySaveSessionTokenValue(methodInfo, sessionTokenString);
+    }
+
+    /// <summary>
+    /// Alternate overload for <see cref="TrySaveSessionTokenFromReturnValue{TResponse}"/> in the event that the
+    /// return value for the intercepted method call is not of type <see cref="ResponseMessage"/>.
+    /// </summary>
+    /// <remarks>The correct overload of this method is selected at runtime by dynamic dispatch.</remarks>
+    /// <param name="methodInfo">Info about the method whose invocation was intercepted.</param>
+    /// <param name="response">The value returned by the intercepted method call.</param>
+    /// <returns><c>true</c> if a session token was successfully saved; <c>false</c> otherwise.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">If the method call on <see cref="Container"/> is not
+    /// recognized.</exception>
+    private bool TrySaveSessionTokenFromReturnValue(MethodInfo methodInfo, ResponseMessage response)
+    {
+        var sessionTokenString = response.Headers.Session;
+        _logger.LogTrace("Session token captured from Cosmos DB ResponseMessage: {SessionToken}", sessionTokenString);
+
+        return TrySaveSessionTokenValue(methodInfo, sessionTokenString);
+    }
+
+    /// <summary>
+    /// Alternate overload for <see cref="TrySaveSessionTokenFromReturnValue{TResponse}"/> in the event that the
+    /// return value for the intercepted method call is not of type <see cref="Response{T}"/>.
+    /// </summary>
+    /// <remarks>The correct overload of this method is selected at runtime by dynamic dispatch.</remarks>
+    /// <param name="methodInfo">Info about the method whose invocation was intercepted.</param>
+    /// <param name="returnValue">The value returned by the intercepted method call.</param>
+    /// <returns><c>true</c> if a session token was successfully saved; <c>false</c> otherwise.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">If the method call on <see cref="Container"/> is not
+    /// recognized.</exception>
+    // ReSharper disable once UnusedParameter.Local
+    private bool TrySaveSessionTokenFromReturnValue(MethodInfo methodInfo, object returnValue)
+    {
+        _logger.LogTrace(
+            "Return value was not a Response<> or ResponseMessage - actual type was {ReturnValueType}",
+            returnValue.GetType());
+        return false;
+    }
+
+    private bool TrySaveSessionTokenValue(MethodInfo methodInfo, string? sessionTokenString)
+    {
         if (sessionTokenString == null)
         {
             _logger.LogTrace("Session token was null - not saved");
@@ -257,24 +299,6 @@ public class CosmosDbContainerInterceptor<T> : IInterceptor
 
         _logger.LogWarning(
             "Current context is null, this call flow is not currently within a tracked context. Session token not saved");
-        return false;
-    }
-
-    /// <summary>
-    /// Alternate overload for <see cref="TrySaveSessionTokenFromReturnValue{TResponse}"/> in the event that the
-    /// return value for the intercepted method call is not of type <see cref="Response{T}"/>.
-    /// </summary>
-    /// <remarks>The correct overload of this method is selected at runtime by dynamic dispatch.</remarks>
-    /// <param name="methodInfo">Info about the method whose invocation was intercepted.</param>
-    /// <param name="response">The value returned by the intercepted method call.</param>
-    /// <typeparam name="TResponse">The type of value within the <see cref="Response{T}"/></typeparam>
-    /// <returns><c>true</c> if a session token was successfully saved; <c>false</c> otherwise.</returns>
-    /// <exception cref="ArgumentOutOfRangeException">If the method call on <see cref="Container"/> is not
-    /// recognized.</exception>
-    private bool TrySaveSessionTokenFromReturnValue(MethodInfo methodInfo, object returnValue)
-    {
-        _logger.LogTrace("Return value was not a Response<> instance - actual type was {ReturnValueType}",
-            returnValue.GetType());
         return false;
     }
 }
