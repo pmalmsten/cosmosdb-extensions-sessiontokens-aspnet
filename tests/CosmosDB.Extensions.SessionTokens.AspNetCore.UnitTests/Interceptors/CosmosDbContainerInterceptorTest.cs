@@ -13,7 +13,6 @@ namespace CosmosDb.Extensions.SessionTokens.AspNetCore.UnitTests.Interceptors;
 
 public class CosmosDbContainerInterceptorTest
 {
-    private readonly ITestOutputHelper _testOutputHelper;
     private readonly Container _fakeContainer = A.Fake<Container>();
     private readonly Container _container;
 
@@ -37,7 +36,6 @@ public class CosmosDbContainerInterceptorTest
 
     public CosmosDbContainerInterceptorTest(ITestOutputHelper testOutputHelper)
     {
-        _testOutputHelper = testOutputHelper;
         _container = new ProxyGenerator().CreateClassProxyWithTarget(
             _fakeContainer,
             new CosmosDbContainerInterceptor<int>(
@@ -216,12 +214,194 @@ public class CosmosDbContainerInterceptorTest
         AssertItemRequestOptionsIncludesSessionTokenAtIndex(2);
         AssertSessionTokenSavedFromResponse(SessionTokenSource.FromWrite, _dummyNewSessionToken);
     }
+    
+    [Fact]
+    public async Task DeleteItemAsync_SessionTokenInjectedAndNewSessionTokenCaptured()
+    {
+        A.CallTo(() =>
+                _fakeContainer.DeleteItemAsync<object>(A<string>._, _dummyItemPartitionKey, A<ItemRequestOptions>._,
+                    A<CancellationToken>._))
+            .Returns(_dummyItemResponse);
+
+        A.CallTo(() => _dummyItemResponse.Headers.Session).Returns(_dummyNewSessionToken);
+
+        (await _container.DeleteItemAsync<object>(A.Dummy<string>(), _dummyItemPartitionKey))
+            .Should().BeSameAs(_dummyItemResponse);
+
+        AssertItemRequestOptionsIncludesSessionTokenAtIndex(2);
+        AssertSessionTokenSavedFromResponse(SessionTokenSource.FromWrite, _dummyNewSessionToken);
+    }
+
+    [Fact]
+    public async Task DeleteItemStreamAsync_SessionTokenInjectedAndNewSessionTokenCaptured()
+    {
+        A.CallTo(() =>
+                _fakeContainer.DeleteItemStreamAsync(A<string>._, _dummyItemPartitionKey, A<ItemRequestOptions>._,
+                    A<CancellationToken>._))
+            .Returns(_dummyResponseMessage);
+
+        A.CallTo(() => _dummyResponseMessage.Headers.Session).Returns(_dummyNewSessionToken);
+
+        (await _container.DeleteItemStreamAsync(A.Dummy<string>(), _dummyItemPartitionKey))
+            .Should().BeSameAs(_dummyResponseMessage);
+
+        AssertItemRequestOptionsIncludesSessionTokenAtIndex(2);
+        AssertSessionTokenSavedFromResponse(SessionTokenSource.FromWrite, _dummyNewSessionToken);
+    }
+    
+    [Fact]
+    public async Task PatchItemAsync_SessionTokenInjectedAndNewSessionTokenCaptured()
+    {
+        A.CallTo(() =>
+                _fakeContainer.PatchItemAsync<object>(
+                    A<string>._,
+                    _dummyItemPartitionKey,
+                    A<IReadOnlyList<PatchOperation>>._,
+                    A<PatchItemRequestOptions>._,
+                    A<CancellationToken>._))
+            .Returns(_dummyItemResponse);
+
+        A.CallTo(() => _dummyItemResponse.Headers.Session).Returns(_dummyNewSessionToken);
+
+        (await _container.PatchItemAsync<object>(
+                A.Dummy<string>(), _dummyItemPartitionKey, ImmutableList<PatchOperation>.Empty))
+            .Should().BeSameAs(_dummyItemResponse);
+
+        AssertPatchItemRequestOptionsIncludesSessionTokenAtIndex(3);
+        AssertSessionTokenSavedFromResponse(SessionTokenSource.FromWrite, _dummyNewSessionToken);
+    }
+
+    [Fact]
+    public async Task PatchItemStreamAsync_SessionTokenInjectedAndNewSessionTokenCaptured()
+    {
+        A.CallTo(() =>
+                _fakeContainer.PatchItemStreamAsync(
+                    A<string>._,
+                    _dummyItemPartitionKey,
+                    A<IReadOnlyList<PatchOperation>>._,
+                    A<PatchItemRequestOptions>._,
+                    A<CancellationToken>._))
+            .Returns(_dummyResponseMessage);
+
+        A.CallTo(() => _dummyResponseMessage.Headers.Session).Returns(_dummyNewSessionToken);
+
+        (await _container.PatchItemStreamAsync(A.Dummy<string>(), A.Dummy<PartitionKey>(), ImmutableList<PatchOperation>.Empty))
+            .Should().BeSameAs(_dummyResponseMessage);
+
+        AssertPatchItemRequestOptionsIncludesSessionTokenAtIndex(3);
+        AssertSessionTokenSavedFromResponse(SessionTokenSource.FromWrite, _dummyNewSessionToken);
+    }
+    
+    [Fact]
+    public async Task UpsertItemAsync_SessionTokenInjectedAndNewSessionTokenCaptured()
+    {
+        A.CallTo(() =>
+                _fakeContainer.UpsertItemAsync(
+                    A<object>._, _dummyItemPartitionKey, A<ItemRequestOptions>._, A<CancellationToken>._))
+            .Returns(_dummyItemResponse);
+
+        A.CallTo(() => _dummyItemResponse.Headers.Session).Returns(_dummyNewSessionToken);
+
+        (await _container.UpsertItemAsync(A.Dummy<object>(), _dummyItemPartitionKey))
+            .Should().BeSameAs(_dummyItemResponse);
+
+        AssertItemRequestOptionsIncludesSessionTokenAtIndex(2);
+        AssertSessionTokenSavedFromResponse(SessionTokenSource.FromWrite, _dummyNewSessionToken);
+    }
+
+    [Fact]
+    public async Task UpsertItemStreamAsync_SessionTokenInjectedAndNewSessionTokenCaptured()
+    {
+        A.CallTo(() =>
+                _fakeContainer.UpsertItemStreamAsync(
+                    A<Stream>._, _dummyItemPartitionKey, A<ItemRequestOptions>._, A<CancellationToken>._))
+            .Returns(_dummyResponseMessage);
+
+        A.CallTo(() => _dummyResponseMessage.Headers.Session).Returns(_dummyNewSessionToken);
+
+        (await _container.UpsertItemStreamAsync(A.Dummy<Stream>(), _dummyItemPartitionKey))
+            .Should().BeSameAs(_dummyResponseMessage);
+        
+        AssertItemRequestOptionsIncludesSessionTokenAtIndex(2);
+        AssertSessionTokenSavedFromResponse(SessionTokenSource.FromWrite, _dummyNewSessionToken);
+    }
+    
+    [Fact]
+    public void GetItemLinqQueryable_SessionTokenInjected()
+    {
+        _container.GetItemLinqQueryable<object>();
+
+        AssertQueryRequestOptionsIncludesSessionTokenAtIndex(2);
+    }
+
+    [Fact]
+    public void GetItemQueryIterator_QueryDefinitionOverload_SessionTokenInjected()
+    { 
+        _container.GetItemQueryIterator<object>(new QueryDefinition("SELECT * from test t"));
+
+        AssertQueryRequestOptionsIncludesSessionTokenAtIndex(2);
+    }
+    
+    [Fact]
+    public void GetItemQueryIterator_StringOverload_SessionTokenInjected()
+    { 
+        _container.GetItemQueryIterator<object>(A.Dummy<string>());
+
+        AssertQueryRequestOptionsIncludesSessionTokenAtIndex(2);
+    }
+
+    [Fact]
+    public void GetItemQueryIterator_FeedRangeOverload_SessionTokenInjected()
+    {
+        _container.GetItemQueryIterator<object>(A.Dummy<FeedRange>(), new QueryDefinition("SELECT * from test t"));
+
+        AssertQueryRequestOptionsIncludesSessionTokenAtIndex(3);
+    }
+    
+    [Fact]
+    public void GetItemQueryStreamIterator_QueryDefinitionOverload_SessionTokenInjected()
+    { 
+        _container.GetItemQueryStreamIterator(new QueryDefinition("SELECT * from test t"));
+
+        AssertQueryRequestOptionsIncludesSessionTokenAtIndex(2);
+    }
+    
+    [Fact]
+    public void GetItemQueryStreamIterator_StringOverload_SessionTokenInjected()
+    { 
+        _container.GetItemQueryStreamIterator(A.Dummy<string>());
+
+        AssertQueryRequestOptionsIncludesSessionTokenAtIndex(2);
+    }
+
+    [Fact]
+    public void GetItemQueryStreamIterator_FeedRangeOverload_SessionTokenInjected()
+    {
+        _container.GetItemQueryStreamIterator(
+            A.Dummy<FeedRange>(), new QueryDefinition("SELECT * from test t"), continuationToken: A.Dummy<string>());
+
+        AssertQueryRequestOptionsIncludesSessionTokenAtIndex(3);
+    }
+
+    private void AssertQueryRequestOptionsIncludesSessionTokenAtIndex(int paramIndex)
+    {
+        Fake.GetCalls(_fakeContainer)
+            .Should().ContainSingle().Which.Arguments[paramIndex]
+            .Should().BeAssignableTo<QueryRequestOptions>().Which.SessionToken.Should().Be(_dummySessionToken);
+    }
 
     private void AssertItemRequestOptionsIncludesSessionTokenAtIndex(int paramIndex)
     {
         Fake.GetCalls(_fakeContainer)
             .Should().ContainSingle().Which.Arguments[paramIndex]
             .Should().BeAssignableTo<ItemRequestOptions>().Which.SessionToken.Should().Be(_dummySessionToken);
+    }
+    
+    private void AssertPatchItemRequestOptionsIncludesSessionTokenAtIndex(int paramIndex)
+    {
+        Fake.GetCalls(_fakeContainer)
+            .Should().ContainSingle().Which.Arguments[paramIndex]
+            .Should().BeAssignableTo<PatchItemRequestOptions>().Which.SessionToken.Should().Be(_dummySessionToken);
     }
     
     private void AssertReadManyRequestOptionsIncludesSessionTokenAtIndex(int paramIndex)
