@@ -120,6 +120,12 @@ This library uses `Microsft.Extensions.Logging` for logs. Set the log level for
 * Automatic session token management is only supported for the [NoSQL](https://learn.microsoft.com/en-us/azure/cosmos-db/choose-api#coresql-api) API.
   * Only methods on the [Container](https://learn.microsoft.com/en-us/dotnet/api/microsoft.azure.cosmos.container?view=azure-dotnet) class
     are supported. Calls to other NoSQL APIs will succeed, but Cosmos DB session tokens are not managed for them.
+    * [Transactional batch](https://learn.microsoft.com/en-us/dotnet/api/microsoft.azure.cosmos.transactionalbatch?view=azure-dotnet)
+      methods are not currently supported.
+    * [Container.Conflicts](https://learn.microsoft.com/en-us/dotnet/api/microsoft.azure.cosmos.container.conflicts?view=azure-dotnet#microsoft-azure-cosmos-container-conflicts) 
+      methods are not currently supported.
+    * [Container.Scripts](https://learn.microsoft.com/en-us/dotnet/api/microsoft.azure.cosmos.container.scripts?view=azure-dotnet#microsoft-azure-cosmos-container-scripts) 
+      methods are not currently supported.
 * If your application issues reads and writes to Cosmos DB in parallel, some limitations apply:
   * **When your application issues multiple Cosmos DB writes in parallel, the session token returned for the most
     recently completed write wins**. As a result, read-your-own-writes consistency guarantees will apply only for the
