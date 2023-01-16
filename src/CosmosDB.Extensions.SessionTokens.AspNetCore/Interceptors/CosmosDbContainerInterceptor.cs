@@ -14,37 +14,6 @@ public delegate T? GetCurrentContextDelegate<out T>();
 
 public class CosmosDbContainerInterceptor<T> : IInterceptor
 {
-    private enum MethodClassification
-    {
-        Read,
-        Write
-    }
-
-    private static readonly IReadOnlyDictionary<string, MethodClassification> CosmosDbMethodNameToClassification =
-        ImmutableDictionary<string, MethodClassification>.Empty
-            .Add(nameof(Container.CreateItemAsync), MethodClassification.Write)
-            .Add(nameof(Container.DeleteContainerAsync), MethodClassification.Write)
-            .Add(nameof(Container.DeleteItemAsync), MethodClassification.Write)
-            .Add(nameof(Container.PatchItemAsync), MethodClassification.Write)
-            .Add(nameof(Container.ReadContainerAsync), MethodClassification.Read)
-            .Add(nameof(Container.ReadItemAsync), MethodClassification.Read)
-            .Add(nameof(Container.ReplaceContainerAsync), MethodClassification.Write)
-            .Add(nameof(Container.ReplaceItemAsync), MethodClassification.Write)
-            .Add(nameof(Container.ReplaceThroughputAsync), MethodClassification.Write)
-            .Add(nameof(Container.UpsertItemAsync), MethodClassification.Write)
-            .Add(nameof(Container.CreateItemStreamAsync), MethodClassification.Write)
-            .Add(nameof(Container.DeleteContainerStreamAsync), MethodClassification.Write)
-            .Add(nameof(Container.DeleteItemStreamAsync), MethodClassification.Write)
-            .Add(nameof(Container.PatchItemStreamAsync), MethodClassification.Write)
-            .Add(nameof(Container.ReadContainerStreamAsync), MethodClassification.Read)
-            .Add(nameof(Container.ReadContainerStreamAsync), MethodClassification.Read)
-            .Add(nameof(Container.ReadItemStreamAsync), MethodClassification.Read)
-            .Add(nameof(Container.ReadManyItemsAsync), MethodClassification.Read)
-            .Add(nameof(Container.ReplaceContainerStreamAsync), MethodClassification.Write)
-            .Add(nameof(Container.ReplaceItemStreamAsync), MethodClassification.Write)
-            .Add(nameof(Container.UpsertItemStreamAsync), MethodClassification.Write)
-            .Add(nameof(Container.ReadManyItemsStreamAsync), MethodClassification.Read);
-
     private readonly Uri _accountEndpoint;
     private readonly string _databaseName;
     private readonly string _containerName;
@@ -275,7 +244,7 @@ public class CosmosDbContainerInterceptor<T> : IInterceptor
         var currentContext = _getCurrentContextDelegate.Invoke();
         if (currentContext != null)
         {
-            var methodClassification = CosmosDbMethodNameToClassification[methodInfo.Name];
+            var sessionTokenCapturedFromRead = methodInfo.Name.StartsWith("Read");
 
             _cosmosDbContextSessionTokenManager.SetSessionTokenForContextAndFullyQualifiedContainer(
                 currentContext,
@@ -283,14 +252,7 @@ public class CosmosDbContainerInterceptor<T> : IInterceptor
                 _databaseName,
                 _containerName,
                 new SessionTokenWithSource(
-                    methodClassification switch
-                    {
-                        MethodClassification.Read => SessionTokenSource.FromRead,
-                        MethodClassification.Write => SessionTokenSource.FromWrite,
-                        _ => throw new ArgumentOutOfRangeException(
-                            nameof(methodClassification),
-                            methodClassification.ToString())
-                    },
+                    sessionTokenCapturedFromRead ? SessionTokenSource.FromRead : SessionTokenSource.FromWrite,
                     sessionTokenString
                 ));
             _logger.LogTrace("Current context was not null, session token was saved");
