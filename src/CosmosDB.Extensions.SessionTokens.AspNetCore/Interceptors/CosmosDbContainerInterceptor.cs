@@ -1,6 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Collections.Immutable;
 using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
@@ -12,7 +10,7 @@ namespace CosmosDB.Extensions.SessionTokens.AspNetCore.Interceptors;
 
 public delegate T? GetCurrentContextDelegate<out T>();
 
-public class CosmosDbContainerInterceptor<T> : IInterceptor
+public class CosmosDbContainerInterceptor<T> : IAsyncInterceptor
 {
     private readonly Uri _accountEndpoint;
     private readonly string _databaseName;
@@ -37,12 +35,12 @@ public class CosmosDbContainerInterceptor<T> : IInterceptor
         _containerName = containerName;
     }
 
-    public void Intercept(IInvocation invocation)
+    public void InterceptSynchronous(IInvocation invocation)
     {
         using var scope = _logger.BeginScope(
             "Invocation of {MethodName}, assigned invocation ID {InvocationId}", invocation.Method.Name,
             Guid.NewGuid());
-        _logger.LogTrace("Entering invocation");
+        _logger.LogTrace("Entering synchronous invocation");
 
         try
         {
@@ -52,17 +50,69 @@ public class CosmosDbContainerInterceptor<T> : IInterceptor
             invocation.Proceed();
             _logger.LogTrace("Calling invocation.Proceed() returned normally");
 
-            // Dynamically dispatch this call at runtime in order to properly handle 1) return values of Task<T>
-            // that need to be awaited, and 2) all other return values that don't need to be awaited.
-            // For Task<T> return values, we must update the return value here in order to guarantee that
-            // `await`ing application code only resumes *after* this interceptor has processed the return value within
-            // the Task; this call will return a new Task representing the completion of processing the original return
-            // value.
-            invocation.ReturnValue = InterceptReturnValue(invocation.Method, (dynamic)invocation.ReturnValue);
+            InterceptReturnValue(invocation.Method, invocation.ReturnValue);
         }
         finally
         {
             _logger.LogTrace("Exiting invocation");
+        }
+    }
+    
+    public void InterceptAsynchronous(IInvocation invocation)
+    {
+        using var scope = _logger.BeginScope(
+            "Invocation of {MethodName}, assigned invocation ID {InvocationId}", invocation.Method.Name,
+            Guid.NewGuid());
+        _logger.LogTrace("Entering async invocation with no result");
+
+        try
+        {
+            invocation.ReturnValue = InterceptAsync(invocation);
+        }
+        finally
+        {
+            _logger.LogTrace("Exiting invocation");
+        }
+        
+        async Task InterceptAsync(IInvocation invocation2)
+        {
+            SetSessionTokenOnRequestOptionsParameter(invocation2);
+        
+            _logger.LogTrace("Awaiting before continuing");
+        
+            invocation2.Proceed();
+            var task = (Task)invocation2.ReturnValue;
+            await task.ConfigureAwait(false);
+        }
+    }
+
+    public void InterceptAsynchronous<TResult>(IInvocation invocation)
+    {
+        using var scope = _logger.BeginScope(
+            "Invocation of {MethodName}, assigned invocation ID {InvocationId}", invocation.Method.Name,
+            Guid.NewGuid());
+        _logger.LogTrace("Entering async invocation with result");
+
+        try
+        {
+            invocation.ReturnValue = InterceptAsyncWithResult<TResult>(invocation);
+        }
+        finally
+        {
+            _logger.LogTrace("Exiting invocation");
+        }
+        
+        async Task<TResult2> InterceptAsyncWithResult<TResult2>(IInvocation invocation2)
+        {
+            SetSessionTokenOnRequestOptionsParameter(invocation2);
+        
+            _logger.LogTrace("Awaiting before continuing");
+        
+            invocation2.Proceed();
+            var task = (Task<TResult2>)invocation2.ReturnValue;
+            var result = await task.ConfigureAwait(false);
+        
+            return InterceptReturnValue(invocation2.Method, result);
         }
     }
 
@@ -131,23 +181,6 @@ public class CosmosDbContainerInterceptor<T> : IInterceptor
     }
 
     /// <summary>
-    /// If the return value is <see cref="Task{TResult}"/>, dynamic dispatch will call this method at runtime. This method
-    /// simply awaits the task, and calls the non-Task overload
-    /// <see cref="InterceptReturnValue{TNonTask}(System.Reflection.MethodInfo,TNonTask)"/> with the awaited value.
-    /// </summary>
-    /// <param name="methodInfo">Info about the method whose invocation was intercepted.</param>
-    /// <param name="returnValueTask">The Task returned by the intercepted method call.</param>
-    /// <typeparam name="TTask">The type of the value within the <see cref="Task{TResult}"/>.</typeparam>
-    /// <returns>A new <see cref="Task{TResult}"/> which completes when 1) the given return value Task completes,
-    /// and 2) the value contained within that <see cref="Task{TResult}"/> has been processed by this interceptor.</returns>
-    private async Task<TTask> InterceptReturnValue<TTask>(MethodInfo methodInfo, Task<TTask> returnValueTask)
-    {
-        _logger.LogTrace("Return value was a Task<T>, awaiting it before continuing");
-
-        return InterceptReturnValue(methodInfo, await returnValueTask);
-    }
-
-    /// <summary>
     /// Intercept the non-<see cref="Task{TResult}"/> return value of the intercepted method call.
     /// </summary>
     /// <remarks>
@@ -156,9 +189,9 @@ public class CosmosDbContainerInterceptor<T> : IInterceptor
     /// </remarks>
     /// <param name="methodInfo">Info about the method whose invocation was intercepted.</param>
     /// <param name="returnValue">The value returned by the intercepted method call.</param>
-    /// <typeparam name="TNonTask">The type of the returned value.</typeparam>
+    /// <typeparam name="TResult">The type of the returned value.</typeparam>
     /// <returns>The returned value.</returns>
-    private TNonTask InterceptReturnValue<TNonTask>(MethodInfo methodInfo, TNonTask returnValue)
+    private TResult InterceptReturnValue<TResult>(MethodInfo methodInfo, TResult returnValue)
     {
         if (returnValue == null)
         {
@@ -167,78 +200,35 @@ public class CosmosDbContainerInterceptor<T> : IInterceptor
             return returnValue;
         }
 
-        // Second dynamic dispatch in order to handle return values that are either 1) of type Response<T>, or 2)
-        // anything else.
-        bool sessionTokenSaved = TrySaveSessionTokenFromReturnValue(methodInfo, (dynamic)returnValue);
+        var returnValueType = returnValue.GetType();
+        var returnValueHeadersProperty = returnValueType.GetProperty(nameof(Response<object>.Headers));
 
-        _logger.LogDebug("Session Token captured from return value: {SessionTokenCapturedFromResponse}",
-            sessionTokenSaved);
+        if (returnValueHeadersProperty != null && returnValueHeadersProperty.PropertyType == typeof(Headers))
+        {
+            _logger.LogDebug("Found Headers property on return value - attempting to capture Session Token value.");
+            var headersPropertyValue = (Headers?) returnValueHeadersProperty.GetValue(returnValue);
+            var sessionTokenString = headersPropertyValue?.Session;
+        
+            TrySaveSessionTokenValue(methodInfo, sessionTokenString);
+        }
+        else
+        {
+            _logger.LogTrace(
+                "Session Token not captured - return value did not have a 'Headers' property. Return value type was {ReturnValueType}",
+                returnValueType);
+        }
+
         return returnValue;
     }
 
-    /// <summary>
-    /// Try to save the Cosmos DB session token from the given <see cref="Response{T}"/>.
-    /// </summary>
-    /// <remarks>The correct overload of this method is selected at runtime by dynamic dispatch.</remarks>
-    /// <param name="methodInfo">Info about the method whose invocation was intercepted.</param>
-    /// <param name="response">The value returned by the intercepted method call.</param>
-    /// <typeparam name="TResponse">The type of value within the <see cref="Response{T}"/></typeparam>
-    /// <returns><c>true</c> if a session token was successfully saved; <c>false</c> otherwise.</returns>
-    /// <exception cref="ArgumentOutOfRangeException">If the method call on <see cref="Container"/> is not
-    /// recognized.</exception>
-    private bool TrySaveSessionTokenFromReturnValue<TResponse>(
-        MethodInfo methodInfo,
-        Response<TResponse> response)
+    private void TrySaveSessionTokenValue(MethodInfo methodInfo, string? sessionTokenString)
     {
-        var sessionTokenString = response.Headers.Session;
-        _logger.LogTrace("Session token captured from Cosmos DB Response<T>: {SessionToken}", sessionTokenString);
-
-        return TrySaveSessionTokenValue(methodInfo, sessionTokenString);
-    }
-
-    /// <summary>
-    /// Alternate overload for <see cref="TrySaveSessionTokenFromReturnValue{TResponse}"/> in the event that the
-    /// return value for the intercepted method call is not of type <see cref="ResponseMessage"/>.
-    /// </summary>
-    /// <remarks>The correct overload of this method is selected at runtime by dynamic dispatch.</remarks>
-    /// <param name="methodInfo">Info about the method whose invocation was intercepted.</param>
-    /// <param name="response">The value returned by the intercepted method call.</param>
-    /// <returns><c>true</c> if a session token was successfully saved; <c>false</c> otherwise.</returns>
-    /// <exception cref="ArgumentOutOfRangeException">If the method call on <see cref="Container"/> is not
-    /// recognized.</exception>
-    private bool TrySaveSessionTokenFromReturnValue(MethodInfo methodInfo, ResponseMessage response)
-    {
-        var sessionTokenString = response.Headers.Session;
-        _logger.LogTrace("Session token captured from Cosmos DB ResponseMessage: {SessionToken}", sessionTokenString);
-
-        return TrySaveSessionTokenValue(methodInfo, sessionTokenString);
-    }
-
-    /// <summary>
-    /// Alternate overload for <see cref="TrySaveSessionTokenFromReturnValue{TResponse}"/> in the event that the
-    /// return value for the intercepted method call is not of type <see cref="Response{T}"/>.
-    /// </summary>
-    /// <remarks>The correct overload of this method is selected at runtime by dynamic dispatch.</remarks>
-    /// <param name="methodInfo">Info about the method whose invocation was intercepted.</param>
-    /// <param name="returnValue">The value returned by the intercepted method call.</param>
-    /// <returns><c>true</c> if a session token was successfully saved; <c>false</c> otherwise.</returns>
-    /// <exception cref="ArgumentOutOfRangeException">If the method call on <see cref="Container"/> is not
-    /// recognized.</exception>
-    // ReSharper disable once UnusedParameter.Local
-    private bool TrySaveSessionTokenFromReturnValue(MethodInfo methodInfo, object returnValue)
-    {
-        _logger.LogTrace(
-            "Return value was not a Response<> or ResponseMessage - actual type was {ReturnValueType}",
-            returnValue.GetType());
-        return false;
-    }
-
-    private bool TrySaveSessionTokenValue(MethodInfo methodInfo, string? sessionTokenString)
-    {
+        _logger.LogTrace("Session Token value: {SessionToken}", sessionTokenString);
+        
         if (sessionTokenString == null)
         {
             _logger.LogTrace("Session token was null - not saved");
-            return false;
+            return;
         }
 
         var currentContext = _getCurrentContextDelegate.Invoke();
@@ -255,12 +245,10 @@ public class CosmosDbContainerInterceptor<T> : IInterceptor
                     sessionTokenCapturedFromRead ? SessionTokenSource.FromRead : SessionTokenSource.FromWrite,
                     sessionTokenString
                 ));
-            _logger.LogTrace("Current context was not null, session token was saved");
-            return true;
+            _logger.LogTrace("Session token was saved");
         }
 
         _logger.LogWarning(
             "Current context is null, this call flow is not currently within a tracked context. Session token not saved");
-        return false;
     }
 }
