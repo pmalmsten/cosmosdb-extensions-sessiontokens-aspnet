@@ -38,7 +38,8 @@ public class CosmosDbContainerInterceptor<T> : IAsyncInterceptor
     public void InterceptSynchronous(IInvocation invocation)
     {
         using var scope = _logger.BeginScope(
-            "Invocation of {MethodName}, assigned invocation ID {InvocationId}", invocation.Method.Name,
+            "Invocation of {MethodName}, assigned invocation ID {InvocationId}", 
+            invocation.Method.Name,
             Guid.NewGuid());
         _logger.LogTrace("Entering synchronous invocation");
 
@@ -61,7 +62,8 @@ public class CosmosDbContainerInterceptor<T> : IAsyncInterceptor
     public void InterceptAsynchronous(IInvocation invocation)
     {
         using var scope = _logger.BeginScope(
-            "Invocation of {MethodName}, assigned invocation ID {InvocationId}", invocation.Method.Name,
+            "Invocation of {MethodName}, assigned invocation ID {InvocationId}", 
+            invocation.Method.Name,
             Guid.NewGuid());
         _logger.LogTrace("Entering async invocation with no result");
 
@@ -89,7 +91,8 @@ public class CosmosDbContainerInterceptor<T> : IAsyncInterceptor
     public void InterceptAsynchronous<TResult>(IInvocation invocation)
     {
         using var scope = _logger.BeginScope(
-            "Invocation of {MethodName}, assigned invocation ID {InvocationId}", invocation.Method.Name,
+            "Invocation of {MethodName}, assigned invocation ID {InvocationId}", 
+            invocation.Method.Name,
             Guid.NewGuid());
         _logger.LogTrace("Entering async invocation with result");
 
@@ -205,7 +208,7 @@ public class CosmosDbContainerInterceptor<T> : IAsyncInterceptor
 
         if (returnValueHeadersProperty != null && returnValueHeadersProperty.PropertyType == typeof(Headers))
         {
-            _logger.LogDebug("Found Headers property on return value - attempting to capture Session Token value.");
+            _logger.LogDebug("Found Headers property on return value - attempting to capture Session Token value");
             var headersPropertyValue = (Headers?) returnValueHeadersProperty.GetValue(returnValue);
             var sessionTokenString = headersPropertyValue?.Session;
         
