@@ -34,7 +34,7 @@ public abstract class CosmosDbSessionTokenHttpMiddleware
             return Task.CompletedTask;
         });
 
-        await _next(context);
+        await _next(context).ConfigureAwait(false);
     }
 
     /// <summary>
