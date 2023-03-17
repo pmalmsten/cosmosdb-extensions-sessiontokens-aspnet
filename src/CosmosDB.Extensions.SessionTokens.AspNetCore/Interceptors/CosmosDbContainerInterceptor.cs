@@ -154,14 +154,14 @@ public class CosmosDbContainerInterceptor<T> : IAsyncInterceptor
                     if (sessionTokenForContextAndDatabase != null)
                     {
                         sessionTokenProperty.SetValue(argumentValue, sessionTokenForContextAndDatabase);
-                        _logger.LogTrace(
+                        _logger.LogDebug(
                             "SessionToken property set on RequestOptions param at position {RequestOptionsParameterIndex}",
                             i);
                         sessionTokenInjectedIntoCallParams = true;
                     }
                     else
                     {
-                        _logger.LogTrace("Session token from manager is null, doing nothing");
+                        _logger.LogDebug("Session token from manager is null, doing nothing");
                     }
                 }
                 else
@@ -216,7 +216,7 @@ public class CosmosDbContainerInterceptor<T> : IAsyncInterceptor
         }
         else
         {
-            _logger.LogTrace(
+            _logger.LogDebug(
                 "Session Token not captured - return value did not have a 'Headers' property. Return value type was {ReturnValueType}",
                 returnValueType);
         }
@@ -248,10 +248,12 @@ public class CosmosDbContainerInterceptor<T> : IAsyncInterceptor
                     sessionTokenCapturedFromRead ? SessionTokenSource.FromRead : SessionTokenSource.FromWrite,
                     sessionTokenString
                 ));
-            _logger.LogTrace("Session token was saved");
+            _logger.LogDebug("Session token was saved");
         }
-
-        _logger.LogWarning(
-            "Current context is null, this call flow is not currently within a tracked context. Session token not saved");
+        else
+        {
+            _logger.LogWarning(
+                "Current context is null, this call flow is not currently within a tracked context. Session token not saved");
+        }
     }
 }
