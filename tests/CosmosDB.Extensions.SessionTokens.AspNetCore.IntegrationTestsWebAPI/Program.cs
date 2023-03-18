@@ -4,6 +4,8 @@ using Microsoft.Azure.Cosmos;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Configuration.AddJsonFile("/app/secrets/appsettings.secrets.json", optional: true);
+
 // Add services to the container.
 
 builder.Services.AddControllers();
@@ -15,7 +17,10 @@ builder.Services.AddLogging();
 builder.Services.AddCosmosDbSessionTokenTracingServices();
 
 builder.Services.AddSingleton(provider => 
-    new CosmosClient(builder.Configuration["CosmosDB:PrimaryConnectionString"])
+    new CosmosClient(builder.Configuration["CosmosDB:PrimaryConnectionString"], new CosmosClientOptions()
+        {
+            ApplicationRegion = Regions.WestUS
+        })
         .WithSessionTokenTracing(provider));
 
 builder.Services.AddHttpLogging(logging =>
