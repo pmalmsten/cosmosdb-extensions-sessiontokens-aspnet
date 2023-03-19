@@ -6,7 +6,9 @@ This projects serves as a platform for both automated integration tests and manu
 The following instructions are for Windows:
 
 #### Prerequisites
-1. Create a free tier Cosmos DB account in Azure with a database named `Sandbox` and a container named `Counters`.
+1. Create a free tier Cosmos DB account in Azure with a database named `Sandbox` and a container named `Counters`. The
+   integration tests web API assumes that West US is the primary (read-write) region.
+   1. In order to increase the likelihood that Cosmos DB read responses are inconsistent, enable replication to a second region.
 2. Install [Docker Desktop](https://www.docker.com/products/docker-desktop).
 3. Install [minikube](https://kubernetes.io/docs/tasks/tools/install-minikube/).
 4. Start minikube: `minikube start`
