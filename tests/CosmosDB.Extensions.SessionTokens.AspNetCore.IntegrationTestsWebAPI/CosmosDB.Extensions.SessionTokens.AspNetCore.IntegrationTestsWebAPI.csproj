@@ -4,15 +4,18 @@
         <TargetFramework>net6.0</TargetFramework>
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>
-      <UserSecretsId>94343fe9-bfad-4edc-aeda-168dcdbf5fdb</UserSecretsId>
-  </PropertyGroup>
+        <UserSecretsId>94343fe9-bfad-4edc-aeda-168dcdbf5fdb</UserSecretsId>
+        <RootNamespace>CosmosDB.Extensions.SessionTokens.AspNetCore.IntegrationTestsWebAPI</RootNamespace>
+        <ContainerImageName>cosmos-sessiontokens-integrationtestswebapi</ContainerImageName>
+    </PropertyGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\..\src\CosmosDB.Extensions.SessionTokens.AspNetCore\CosmosDB.Extensions.SessionTokens.AspNetCore.csproj" />
+        <ProjectReference Include="..\..\src\CosmosDB.Extensions.SessionTokens.AspNetCore\CosmosDB.Extensions.SessionTokens.AspNetCore.csproj" />
     </ItemGroup>
-    
+
     <ItemGroup>
         <PackageReference Include="Swashbuckle.AspNetCore" Version="6.4.0" />
+        <PackageReference Include="Microsoft.NET.Build.Containers" Version="0.3.2" />
     </ItemGroup>
 
 </Project>
