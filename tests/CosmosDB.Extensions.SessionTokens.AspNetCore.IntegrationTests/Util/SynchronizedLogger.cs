@@ -27,7 +27,7 @@ internal class SynchronizedLogger : ILogger
         }
     }
 
-    public IDisposable? BeginScope<TState>(TState state) where TState : notnull
+    public IDisposable BeginScope<TState>(TState state)
     {
         lock (_globalLogLock)
         {
