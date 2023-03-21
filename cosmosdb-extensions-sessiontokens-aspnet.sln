@@ -10,6 +10,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CosmosDB.Extensions.Session
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CosmosDB.Extensions.SessionTokens.AspNetCore.IntegrationTestsWebAPI", "tests\CosmosDB.Extensions.SessionTokens.AspNetCore.IntegrationTestsWebAPI\CosmosDB.Extensions.SessionTokens.AspNetCore.IntegrationTestsWebAPI.csproj", "{A55682F9-44DC-4FFF-8AA1-10555CD98E03}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CosmosDB.Extensions.SessionTokens.AspNetCore.ManualTestClient", "tests\CosmosDB.Extensions.SessionTokens.AspNetCore.ManualTestClient\CosmosDB.Extensions.SessionTokens.AspNetCore.ManualTestClient.csproj", "{7156B8E9-A849-483A-914B-0E4EB1FD4263}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -32,10 +34,15 @@ Global
 		{A55682F9-44DC-4FFF-8AA1-10555CD98E03}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A55682F9-44DC-4FFF-8AA1-10555CD98E03}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{A55682F9-44DC-4FFF-8AA1-10555CD98E03}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7156B8E9-A849-483A-914B-0E4EB1FD4263}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7156B8E9-A849-483A-914B-0E4EB1FD4263}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7156B8E9-A849-483A-914B-0E4EB1FD4263}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7156B8E9-A849-483A-914B-0E4EB1FD4263}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{1524AA66-E983-43C8-87F9-F462005DF409} = {A105E34F-1CB5-496E-9BBD-44E3F70E7AF1}
 		{CAB2635D-A6EC-4AF6-9020-496C2C37BFFB} = {A105E34F-1CB5-496E-9BBD-44E3F70E7AF1}
 		{A55682F9-44DC-4FFF-8AA1-10555CD98E03} = {A105E34F-1CB5-496E-9BBD-44E3F70E7AF1}
+		{7156B8E9-A849-483A-914B-0E4EB1FD4263} = {A105E34F-1CB5-496E-9BBD-44E3F70E7AF1}
 	EndGlobalSection
 EndGlobal
