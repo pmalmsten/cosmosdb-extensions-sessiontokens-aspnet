@@ -2,15 +2,15 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CosmosDB.Extensions.SessionTokens.AspNetCore", "src\CosmosDB.Extensions.SessionTokens.AspNetCore\CosmosDB.Extensions.SessionTokens.AspNetCore.csproj", "{F783213E-6035-4570-B4F3-8C39CE6A5D2B}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CosmosDB.Extensions.SessionTokens.AspNetCore.UnitTests", "tests\CosmosDB.Extensions.SessionTokens.AspNetCore.UnitTests\CosmosDB.Extensions.SessionTokens.AspNetCore.UnitTests.csproj", "{1524AA66-E983-43C8-87F9-F462005DF409}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AspNetCore.UnitTests", "tests\AspNetCore.UnitTests\AspNetCore.UnitTests.csproj", "{1524AA66-E983-43C8-87F9-F462005DF409}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Tests", "Tests", "{A105E34F-1CB5-496E-9BBD-44E3F70E7AF1}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CosmosDB.Extensions.SessionTokens.AspNetCore.IntegrationTests", "tests\CosmosDB.Extensions.SessionTokens.AspNetCore.IntegrationTests\CosmosDB.Extensions.SessionTokens.AspNetCore.IntegrationTests.csproj", "{CAB2635D-A6EC-4AF6-9020-496C2C37BFFB}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AspNetCore.IntegrationTests", "tests\AspNetCore.IntegrationTests\AspNetCore.IntegrationTests.csproj", "{CAB2635D-A6EC-4AF6-9020-496C2C37BFFB}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CosmosDB.Extensions.SessionTokens.AspNetCore.IntegrationTestsWebAPI", "tests\CosmosDB.Extensions.SessionTokens.AspNetCore.IntegrationTestsWebAPI\CosmosDB.Extensions.SessionTokens.AspNetCore.IntegrationTestsWebAPI.csproj", "{A55682F9-44DC-4FFF-8AA1-10555CD98E03}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "IntegrationTestsWebAPI", "tests\IntegrationTestsWebAPI\IntegrationTestsWebAPI.csproj", "{A55682F9-44DC-4FFF-8AA1-10555CD98E03}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CosmosDB.Extensions.SessionTokens.AspNetCore.ManualTestClient", "tests\CosmosDB.Extensions.SessionTokens.AspNetCore.ManualTestClient\CosmosDB.Extensions.SessionTokens.AspNetCore.ManualTestClient.csproj", "{7156B8E9-A849-483A-914B-0E4EB1FD4263}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AspNetCore.ManualTestClient", "tests\AspNetCore.ManualTestClient\AspNetCore.ManualTestClient.csproj", "{7156B8E9-A849-483A-914B-0E4EB1FD4263}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

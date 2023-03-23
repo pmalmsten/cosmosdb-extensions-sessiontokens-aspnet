@@ -5,6 +5,7 @@
         <TargetFramework>net6.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
+        <AssemblyName>CosmosDB.Extensions.SessionTokens.AspNetCore.ManualTestClient</AssemblyName>
         <RootNamespace>CosmosDB.Extensions.SessionTokens.AspNetCore.ManualTestClient</RootNamespace>
     </PropertyGroup>
 
