@@ -19,17 +19,17 @@ The following instructions are for Windows:
 2. Switch to the minikube docker environment: `& minikube -p minikube docker-env --shell powershell | Invoke-Expression`
 3. Publish the Docker image to minikube: `dotnet publish --os linux --arch x64 -p:PublishProfile=DefaultContainer -c Release`
 
-#### Creating the `appconfig.secrets.json` Secret
+#### Creating the `appsettings.secrets.json` Secret
 In order to access Cosmos DB, the app server needs to know the primary read-write connection string for the account. To make
 this available to the app server, we create a Kubernetes secret containing the connection string in a JSON file.
 
-1. Create a file named `appconfig.secrets.json` in the local directory, containing:
+1. Create a file named `appsettings.secrets.json` in the local directory, containing:
     ```json
     {
       "CosmosDB:PrimaryConnectionString": "<your primary read-write connection string>"
     }
     ```
-2. Upload the file as a Kubernetes secret called `secret-appsettings`: `kubectl create secret generic secret-appsettings --from-file=appconfig.secrets.json`
+2. Upload the file as a Kubernetes secret called `secret-appsettings`: `kubectl create secret generic secret-appsettings --from-file=appsettings.secrets.json`
 
 #### Starting the Web API
 
